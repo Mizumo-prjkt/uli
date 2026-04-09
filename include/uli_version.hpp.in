@@ -1,0 +1,11 @@
+#ifndef ULI_VERSION_HPP
+#define ULI_VERSION_HPP
+
+#include <string>
+
+namespace uli {
+    const std::string PROJECT_VERSION = "@PROJECT_VERSION@";
+    const std::string BUILD_TYPE = "@CMAKE_BUILD_TYPE@";
+}
+
+#endif // ULI_VERSION_HPP

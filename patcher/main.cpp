@@ -12,6 +12,7 @@
 
 #include "lib/iso_backend.hpp"
 #include "lib/boot_detector.hpp"
+#include "uli_version.hpp"
 #include "lib/boot_injector.hpp"
 #include "lib/autostart_gen.hpp"
 
@@ -23,6 +24,7 @@ struct PatcherArgs {
     std::string profile_path;
     std::string output_path;
     bool help = false;
+    bool version = false;
     bool dry_run = false;
 };
 
@@ -42,6 +44,7 @@ Optional Arguments:
   --output      Path for the patched output ISO (default: <input>_uli.iso)
   --dry-run     Analyze the ISO without making changes
   --help, -h    Show this help message
+  --version, -v Show the project version
 
 Example:
   uli_patcher --iso archlinux-2026.04.01-x86_64.iso \
@@ -68,6 +71,8 @@ PatcherArgs parse_args(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
             args.help = true;
+        } else if (arg == "--version" || arg == "-v") {
+            args.version = true;
         } else if (arg == "--dry-run") {
             args.dry_run = true;
         } else if (arg == "--iso" && i + 1 < argc) {
@@ -94,6 +99,11 @@ int main(int argc, char* argv[]) {
 
     if (args.help || argc < 2) {
         print_help();
+        return 0;
+    }
+
+    if (args.version) {
+        std::cout << "ULI Patcher version " << uli::PROJECT_VERSION << " (" << uli::BUILD_TYPE << ")" << std::endl;
         return 0;
     }
 

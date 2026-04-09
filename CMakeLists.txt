@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.14)
 project(uli CXX)
 
+# Versioning
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PROJECT_VERSION_RAW)
+string(STRIP "${PROJECT_VERSION_RAW}" PROJECT_VERSION)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/uli_version.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/uli_version.hpp"
+    @ONLY
+)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -53,7 +62,11 @@ if(ULI_BUILD_INSTALLER)
         installer/lib/runtime/contents/profiles/profiles.cpp
         installer/lib/package_mgr/repofetch.cpp
     )
-    target_include_directories(uli_installer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/installer ${DBUS_INCLUDE_DIRS})
+    target_include_directories(uli_installer PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/installer 
+        ${CMAKE_BINARY_DIR}/generated 
+        ${DBUS_INCLUDE_DIRS}
+    )
     
     if(ARCHIVE_FOUND)
         target_include_directories(uli_installer PRIVATE ${ARCHIVE_INCLUDE_DIRS})
@@ -81,7 +94,10 @@ if(ULI_BUILD_PATCHER)
         patcher/lib/autostart_gen.cpp
     )
 
-    target_include_directories(uli_patcher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/patcher)
+    target_include_directories(uli_patcher PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/patcher 
+        ${CMAKE_BINARY_DIR}/generated
+    )
 
     if(ISOBURN_FOUND)
         message(STATUS "libisoburn found — uli_patcher will use native xorriso API")

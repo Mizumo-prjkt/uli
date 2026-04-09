@@ -1,0 +1,74 @@
+name: Arch Linux AUR Packaging
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'AUR Target (uli or uli-git)'
+        required: true
+        default: 'uli-git'
+        type: choice
+        options:
+        - uli
+        - uli-git
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy-aur:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate PKGBUILD
+      run: |
+        VERSION=$(cat VERSION)
+        TARGET="${{ github.event.inputs.target }}"
+        if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          TARGET="uli"
+          VERSION="${{ github.ref_name }}"
+          VERSION=${VERSION#v} # strip leading v
+        fi
+        
+        # Use placeholders for now, can be refined
+        cat <<EOF > PKGBUILD
+        # Maintainer: ${{ secrets.AUTHOR_NAME }} <${{ secrets.AUTHOR_EMAIL }}>
+        pkgname=${TARGET}
+        pkgver=${VERSION}
+        pkgrel=1
+        pkgdesc="Universal Linux Installer co-developed with Antigravity"
+        arch=('x86_64')
+        url="https://github.com/\${github.repository}"
+        license=('MIT')
+        depends=('qt6-base' 'qt6-network' 'qt6-widgets' 'libarchive' 'dbus' 'libisoburn' 'yaml-cpp')
+        makedepends=('cmake' 'make')
+        source=("\${pkgname}-\${pkgver}.tar.gz::https://github.com/\${github.repository}/archive/refs/tags/v\${pkgver}.tar.gz")
+        sha256sums=('SKIP')
+
+        build() {
+          cmake -B build -S "uli-\${pkgver}" \
+            -DULI_BUILD_ALL=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          make -C build
+        }
+
+        package() {
+          install -Dm755 build/uli_installer "\${pkgdir}/usr/bin/uli_installer"
+          install -Dm755 build/uli_patcher "\${pkgdir}/usr/bin/uli_patcher"
+          install -Dm755 build/compositor/uli_compositor "\${pkgdir}/usr/bin/uli_compositor"
+        }
+        EOF
+
+    - name: Deploy to AUR
+      uses: ksxgithub/github-actions-deploy-aur@v3
+      with:
+        pkgname: ${{ github.event.inputs.target || 'uli' }}
+        pkgbuild: ./PKGBUILD
+        commit_username: ${{ secrets.AUR_USERNAME }}
+        commit_email: ${{ secrets.AUTHOR_EMAIL }}
+        ssh_private_key: ${{ secrets.AUR_PRIVATE_OPENSSHKEY }}
+        commit_message: "Update to ${VERSION}"
+        ssh_keyscan_types: rsa,dsa,ecdsa,ed25519

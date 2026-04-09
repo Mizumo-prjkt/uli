@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <memory>
 #include <cstdlib>
+#include "uli_version.hpp"
 
 using namespace uli::package_mgr;
 
@@ -38,9 +39,9 @@ void handle_terminal_resize(int) {
 int main(int argc, char* argv[]) {
     uli::runtime::SuddenAbort::register_handlers();
 #ifdef ULI_DEBUG_MODE
-    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--test-memleak", "--debug-mode", "--no-masking", "--dist", "--disk", "--disk-type", "--hardware", "--lintcheck", "--disable-builtin-dict", "--unattended", "--fetch-repos"};
+    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--test-memleak", "--debug-mode", "--no-masking", "--dist", "--disk", "--disk-type", "--hardware", "--lintcheck", "--disable-builtin-dict", "--unattended", "--fetch-repos", "--version", "-v"};
 #else
-    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--lintcheck", "--disable-builtin-dict", "--unattended"};
+    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--lintcheck", "--disable-builtin-dict", "--unattended", "--version", "-v"};
 #endif
 
     uli::checks::DistroType current_distro = uli::checks::detect_distribution();
@@ -67,6 +68,9 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (arg == "--extra-help") {
             uli::documentation::print_extra_help();
+            return 0;
+        } else if (arg == "--version" || arg == "-v") {
+            std::cout << "ULI Installer version " << uli::PROJECT_VERSION << " (" << uli::BUILD_TYPE << ")" << std::endl;
             return 0;
 #ifdef ULI_DEBUG_MODE
         } else if (arg == "--test-memleak") {

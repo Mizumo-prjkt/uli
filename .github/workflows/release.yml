@@ -1,0 +1,72 @@
+name: ULI Release Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          pkg-config \
+          qt6-base-dev \
+          qt6-base-private-dev \
+          qt6-network-dev \
+          qt6-widgets-dev \
+          libyaml-cpp-dev \
+          libarchive-dev \
+          libdbus-1-dev \
+          libisoburn-dev
+
+    - name: Build All Components (Release)
+      run: |
+        chmod +x build.sh
+        ./build.sh --all
+
+    - name: Prepare Artifacts
+      run: |
+        mkdir -p release_assets
+        cp build/uli_installer release_assets/
+        cp build/uli_patcher release_assets/
+        cp build/compositor/uli_compositor release_assets/
+        # Include a copy of VERSION and LICENSE if available
+        cp VERSION release_assets/ || true
+        # Create a compressed tarball
+        tar -czvf uli-binaries-linux-x64.tar.gz -C release_assets .
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/v')
+      with:
+        files: |
+          uli-binaries-linux-x64.tar.gz
+          release_assets/uli_installer
+          release_assets/uli_patcher
+          release_assets/uli_compositor
+        body: |
+          ULI Release ${{ github.ref_name }}
+          
+          Automated build artifacts for Linux x86_64.
+        draft: false
+        prerelease: false
+
+    - name: Upload Artifacts (Actions)
+      uses: actions/upload-artifact@v4
+      with:
+        name: uli-binaries-linux-x64
+        path: release_assets/

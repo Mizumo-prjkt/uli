@@ -24,6 +24,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
     ${CMAKE_CURRENT_SOURCE_DIR}/lib/components
+    ${CMAKE_BINARY_DIR}/generated
     ${LIBARCHIVE_INCLUDE_DIRS}
 )
 
