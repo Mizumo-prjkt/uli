@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <cstdlib>
+#include "../../runtime/blackbox.hpp"
 
 namespace uli {
 namespace partitioner {
@@ -19,6 +20,7 @@ public:
             std::string cmd = "mkswap ";
             if (!label.empty()) cmd += "-L \"" + label + "\" ";
             cmd += "\"" + device_path + "\" > /dev/null 2>&1";
+            uli::runtime::BlackBox::log("EXEC: " + cmd);
             return (std::system(cmd.c_str()) == 0);
         }
 
@@ -42,6 +44,7 @@ public:
         }
         cmd += "\"" + device_path + "\" > /dev/null 2>&1";
         
+        uli::runtime::BlackBox::log("EXEC: " + cmd);
         bool success = (std::system(cmd.c_str()) == 0);
         if (!success) {
             std::cerr << "[mkfs] ERROR: Formatting failed for " << device_path << std::endl;

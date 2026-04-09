@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <termios.h>
+#include "blackbox.hpp"
 
 namespace uli {
 namespace runtime {
@@ -30,6 +31,7 @@ public:
     }
 
     static void signal_handler(int signum) {
+        BlackBox::log("CRASH DETECTED: Received signal " + std::to_string(signum) + " (" + strsignal(signum) + ")");
         restore_terminal();
         std::cerr << "\n[ULI] Terminal session aborted. Received signal: " << signum << " (" << strsignal(signum) << ")\n";
         

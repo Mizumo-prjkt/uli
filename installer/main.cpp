@@ -24,6 +24,7 @@
 #include "lib/runtime/warn.hpp"
 #include "lib/runtime_check.hpp"
 #include "uli_version.hpp"
+#include "lib/runtime/blackbox.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -39,6 +40,8 @@ void handle_terminal_resize(int) {
 }
 
 int main(int argc, char *argv[]) {
+  uli::runtime::BlackBox::init();
+  uli::runtime::BlackBox::log("Installer startup");
   uli::runtime::SuddenAbort::register_handlers();
 #ifdef ULI_DEBUG_MODE
   std::vector<std::string> valid_flags = {"--help",
@@ -355,6 +358,7 @@ int main(int argc, char *argv[]) {
     std::cout << "[INFO] Standard Host Operating System Execution."
               << std::endl;
   }
+  uli::runtime::BlackBox::log("Detected distro: " + distro_name);
 
   // ──────────────────────────────────────────────────
   // Translation Loading logic

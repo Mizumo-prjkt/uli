@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <cstdlib>
+#include "../../runtime/blackbox.hpp"
 
 namespace uli {
 namespace partitioner {
@@ -16,6 +17,7 @@ public:
         std::cout << "[sgdisk] Initializing GPT on \"" << disk_path << "\"" << std::endl;
         // -Z zaps the disk (destroys structures), -o creates a new protective MBR and empty GPT
         std::string cmd = "sgdisk -Z -o \"" + disk_path + "\" > /dev/null 2>&1";
+        uli::runtime::BlackBox::log("EXEC: " + cmd);
         return (std::system(cmd.c_str()) == 0);
     }
     
@@ -26,12 +28,14 @@ public:
         std::string effective_end = (size_end == "0") ? "" : size_end;
         std::string cmd = "sgdisk -n " + std::to_string(part_num) + ":" + size_start + ":" + effective_end 
                         + " -t " + std::to_string(part_num) + ":" + type_code + " \"" + disk_path + "\" > /dev/null 2>&1";
+        uli::runtime::BlackBox::log("EXEC: " + cmd);
         return (std::system(cmd.c_str()) == 0);
     }
     
     // Forces the kernel to re-read the partition table
     static void refresh_part_table(const std::string& disk_path) {
         std::string cmd = "partprobe \"" + disk_path + "\" > /dev/null 2>&1";
+        uli::runtime::BlackBox::log("EXEC: " + cmd);
         std::system(cmd.c_str());
     }
 };
