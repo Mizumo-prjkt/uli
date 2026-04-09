@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -36,12 +39,24 @@ jobs:
         chmod +x build.sh
         ./build.sh --all
 
+    - name: Build All Components (Debug Stuff)
+      run: |
+        ./build.sh --debug --all
+        mkdir -p debug_binaries
+        cp build/uli_installer debug_binaries/debug_uli_installer
+        cp build/uli_patcher debug_binaries/debug_uli_patcher
+        cp build/compositor/uli_compositor debug_binaries/debug_uli_compositor
+
     - name: Prepare Artifacts
       run: |
         mkdir -p release_assets
+        # Release binaries
+        ./build.sh --all
         cp build/uli_installer release_assets/
         cp build/uli_patcher release_assets/
         cp build/compositor/uli_compositor release_assets/
+        # Debug binaries
+        cp debug_binaries/* release_assets/
         # Include a copy of VERSION and LICENSE if available
         cp VERSION release_assets/ || true
         # Create a compressed tarball
@@ -53,15 +68,14 @@ jobs:
       with:
         files: |
           uli-binaries-linux-x64.tar.gz
-          release_assets/uli_installer
-          release_assets/uli_patcher
-          release_assets/uli_compositor
+          release_assets/*
         body: |
-          ULI Release ${{ github.ref_name }}
+          ULI Pre-release ${{ github.ref_name }}
           
           Automated build artifacts for Linux x86_64.
+          Includes both Release and Debug variants.
         draft: false
-        prerelease: false
+        prerelease: true
 
     - name: Upload Artifacts (Actions)
       uses: actions/upload-artifact@v4

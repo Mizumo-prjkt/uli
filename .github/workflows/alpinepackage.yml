@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -58,7 +61,7 @@ jobs:
         pkgver=${VERSION}
         pkgrel=0
         pkgdesc="Universal Linux Installer"
-        url="https://github.com/\${github.repository}"
+        url="https://github.com/${{ github.repository }}"
         arch="x86_64"
         license="MIT"
         depends="qt6-qtbase qt6-qtnetwork qt6-qtwidgets libarchive dbus libisoburn yaml-cpp"
@@ -66,8 +69,8 @@ jobs:
         source=""
         
         build() {
-          cmake -B build -S .. \
-            -DULI_BUILD_ALL=ON \
+          cmake -B build -S .. \\
+            -DULI_BUILD_ALL=ON \\
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build
         }

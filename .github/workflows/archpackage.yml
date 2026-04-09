@@ -15,37 +15,44 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  deploy-aur:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Generate PKGBUILD
+    - name: Set Version
+      id: vars
       run: |
         VERSION=$(cat VERSION)
-        TARGET="${{ github.event.inputs.target }}"
+        TARGET="${{ github.event.inputs.target || 'uli-git' }}"
         if [[ "${{ github.ref_type }}" == "tag" ]]; then
           TARGET="uli"
           VERSION="${{ github.ref_name }}"
-          VERSION=${VERSION#v} # strip leading v
+          VERSION=${VERSION#v}
         fi
-        
-        # Use placeholders for now, can be refined
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "target=${TARGET}" >> $GITHUB_OUTPUT
+
+    - name: Generate PKGBUILD
+      run: |
         cat <<EOF > PKGBUILD
         # Maintainer: ${{ secrets.AUTHOR_NAME }} <${{ secrets.AUTHOR_EMAIL }}>
-        pkgname=${TARGET}
-        pkgver=${VERSION}
+        pkgname=${{ steps.vars.outputs.target }}
+        pkgver=${{ steps.vars.outputs.version }}
         pkgrel=1
         pkgdesc="Universal Linux Installer co-developed with Antigravity"
         arch=('x86_64')
-        url="https://github.com/\${github.repository}"
+        url="https://github.com/${{ github.repository }}"
         license=('MIT')
-        depends=('qt6-base' 'qt6-network' 'qt6-widgets' 'libarchive' 'dbus' 'libisoburn' 'yaml-cpp')
+        depends=('qt6-base' 'libarchive' 'dbus' 'libisoburn' 'yaml-cpp')
         makedepends=('cmake' 'make')
-        source=("\${pkgname}-\${pkgver}.tar.gz::https://github.com/\${github.repository}/archive/refs/tags/v\${pkgver}.tar.gz")
+        source=("\${pkgname}-\${pkgver}.tar.gz::https://github.com/${{ github.repository }}/archive/refs/tags/v\${pkgver}.tar.gz")
         sha256sums=('SKIP')
 
         build() {
@@ -62,13 +69,44 @@ jobs:
         }
         EOF
 
-    - name: Deploy to AUR
-      uses: ksxgithub/github-actions-deploy-aur@v3
+    - name: Arch Build Check & .SRCINFO Generation
+      run: |
+        docker run --rm -v $(pwd):/workspace -w /workspace archlinux:latest bash -c "
+          pacman -Syu --noconfirm base-devel
+          useradd -m builder
+          chown -R builder:builder .
+          sudo -u builder makepkg --printsrcinfo > .SRCINFO
+          # Optional: actually check the build validity (takes time)
+          # sudo -u builder makepkg --syncdeps --noconfirm --nocheck
+        "
+
+    - name: Setup SSH for AUR
+      uses: webfactory/ssh-agent@v0.9.0
       with:
-        pkgname: ${{ github.event.inputs.target || 'uli' }}
-        pkgbuild: ./PKGBUILD
-        commit_username: ${{ secrets.AUR_USERNAME }}
-        commit_email: ${{ secrets.AUTHOR_EMAIL }}
-        ssh_private_key: ${{ secrets.AUR_PRIVATE_OPENSSHKEY }}
-        commit_message: "Update to ${VERSION}"
-        ssh_keyscan_types: rsa,dsa,ecdsa,ed25519
+        ssh-private-key: ${{ secrets.AUR_PRIVATE_OPENSSHKEY }}
+
+    - name: Deploy to AUR
+      run: |
+        # Setup SSH known hosts
+        mkdir -p ~/.ssh
+        ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+        
+        TARGET="${{ steps.vars.outputs.target }}"
+        
+        # Clone (or initialize) the repo
+        # A simple push creation logic
+        git clone aur@aur.archlinux.org:${TARGET}.git aur_repo || (mkdir aur_repo && cd aur_repo && git init && git remote add origin aur@aur.archlinux.org:${TARGET}.git)
+        
+        cp PKGBUILD .SRCINFO aur_repo/
+        cd aur_repo
+        
+        git config user.name "${{ secrets.AUR_USERNAME }}"
+        git config user.email "${{ secrets.AUTHOR_EMAIL }}"
+        
+        git add PKGBUILD .SRCINFO
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update to ${{ steps.vars.outputs.version }}"
+          git push origin master || git push origin main
+        fi
