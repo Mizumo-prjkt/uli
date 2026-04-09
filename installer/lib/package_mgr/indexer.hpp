@@ -15,7 +15,7 @@ public:
     using TranslationMap = std::map<std::string, std::vector<std::string>>;
 
     // Takes a provided configuration map and returns the distribution-specific package name string(s).
-    // The os_distro parameter is expected to be strings like "Debian", "Ubuntu", "Arch Linux", "Alpine".
+    // The os_distro parameter is expected to be strings like "Debian", "Arch Linux", "Alpine".
     static std::vector<std::string> get_packages_from_map(
         const TranslationMap& package_map, 
         const std::string& os_distro,

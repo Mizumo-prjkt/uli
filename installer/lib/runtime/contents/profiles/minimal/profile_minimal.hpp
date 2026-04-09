@@ -17,7 +17,6 @@ public:
         uli::package_mgr::PackageIndexer::TranslationMap sway_map = {
             {"Arch Linux", {"sway", "swaybg", "swayidle", "swaylock", "waybar", "foot"}},
             {"Debian", {"sway", "swaybg", "swayidle", "swaylock", "waybar", "foot"}},
-            {"Ubuntu", {"sway", "swaybg", "swayidle", "swaylock", "waybar", "foot"}},
             {"Alpine", {"sway", "swaybg", "swayidle", "swaylock", "waybar", "foot"}}
         };
 

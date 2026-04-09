@@ -456,7 +456,7 @@ void ProfileEditor::setupComponentsTab(QWidget *tab) {
 
     QLabel *lblBaseplate = new QLabel("Design Baseplate:", distroBar);
     comboTargetDistro = new QComboBox(distroBar);
-    comboTargetDistro->addItems({"Arch Linux", "Alpine Linux", "Debian/Ubuntu"});
+    comboTargetDistro->addItems({"Arch Linux", "Alpine Linux", "Debian"});
     comboTargetDistro->setMinimumWidth(160);
 
     checkAgnostic = new QCheckBox("Distro-Agnostic Mode", distroBar);
@@ -491,7 +491,7 @@ void ProfileEditor::setupComponentsTab(QWidget *tab) {
     editSearch->setClearButtonEnabled(true);
 
     treeSearchSync = new QTreeWidget(leftPanel);
-    treeSearchSync->setHeaderLabels({"#", "Arch Linux", "Alpine Linux", "Debian/Ubuntu"});
+    treeSearchSync->setHeaderLabels({"#", "Arch Linux", "Alpine Linux", "Debian"});
     treeSearchSync->header()->setSectionResizeMode(QHeaderView::Interactive);
     treeSearchSync->header()->resizeSection(0, 40);
     treeSearchSync->header()->resizeSection(1, 180);

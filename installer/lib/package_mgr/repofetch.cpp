@@ -56,7 +56,7 @@ bool ArchDebugFetcher::fetch_and_parse(const std::string& url) {
 #endif
 }
 
-// --- Debian/Ubuntu Implementation ---
+// --- Debian Implementation ---
 bool DebianDebugFetcher::fetch_and_parse(const std::string& url) {
 #ifdef ULI_HAS_LIBARCHIVE
     std::string temp_file = download_to_temp(url);

@@ -16,10 +16,7 @@ std::vector<std::string> PackageIndexer::get_packages_from_map(
         return distro_it->second; // Exact match found for this distro
     }
     
-    // If exact distro not found, try to see if there is a 'Debian' fallback for Ubuntu, or vice-versa
-    if (os_distro == "Ubuntu" && package_map.count("Debian")) {
-         return package_map.at("Debian");
-    }
+    // Exact distro not found, return empty or fallback
     
     // Fallback: If no translation exists, return the generic name as the literal best guess
     if (!fallback_generic_name.empty()) {
@@ -39,7 +36,7 @@ std::string PackageIndexer::resolve_package_name(
         if (m.generic_name == generic_name) {
             if (os_distro == "Arch Linux" && !m.arch_pkg.empty()) return m.arch_pkg;
             if (os_distro == "Alpine Linux" && !m.alpine_pkg.empty()) return m.alpine_pkg;
-            if ((os_distro == "Debian" || os_distro == "Ubuntu") && !m.debian_pkg.empty()) return m.debian_pkg;
+            if (os_distro == "Debian" && !m.debian_pkg.empty()) return m.debian_pkg;
         }
     }
 

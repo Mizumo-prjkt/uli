@@ -14,7 +14,7 @@ DebianFetcher::DebianFetcher(QObject *parent) : RepoFetcher(parent) {
 DebianFetcher::~DebianFetcher() {}
 
 void DebianFetcher::fetch(const QUrl &url) {
-    emit statusUpdated("Starting Debian/Ubuntu Packages fetch from: " + url.toString());
+    emit statusUpdated("Starting Debian Packages fetch from: " + url.toString());
     QNetworkRequest request(url);
     manager->get(request);
 }

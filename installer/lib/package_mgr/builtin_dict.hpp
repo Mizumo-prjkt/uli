@@ -6,7 +6,7 @@
 namespace uli {
 namespace package_mgr {
 
-// Onboard Instruction Set - Debian/Ubuntu Fallback
+// Onboard Instruction Set - Debian Fallback
 const std::string BUILTIN_TRANS_DEBIAN = R"(
 package_manager:
   binary: "apt-get"

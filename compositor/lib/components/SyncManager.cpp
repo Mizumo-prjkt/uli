@@ -17,9 +17,9 @@ SyncManager::SyncManager(QObject *parent) : QObject(parent), m_finishedCount(0) 
     m_sources << RepoSource{"Alpine Linux", "community", QUrl("https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz"), RepoSource::ALPINE};
     
     // Debian Trixie: Main + Security + Updates
-    m_sources << RepoSource{"Debian/Ubuntu", "main", QUrl("http://ftp.debian.org/debian/dists/trixie/main/binary-amd64/Packages.xz"), RepoSource::DEBIAN};
-    m_sources << RepoSource{"Debian/Ubuntu", "security", QUrl("http://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz"), RepoSource::DEBIAN};
-    m_sources << RepoSource{"Debian/Ubuntu", "updates", QUrl("http://ftp.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz"), RepoSource::DEBIAN};
+    m_sources << RepoSource{"Debian", "main", QUrl("http://ftp.debian.org/debian/dists/trixie/main/binary-amd64/Packages.xz"), RepoSource::DEBIAN};
+    m_sources << RepoSource{"Debian", "security", QUrl("http://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz"), RepoSource::DEBIAN};
+    m_sources << RepoSource{"Debian", "updates", QUrl("http://ftp.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz"), RepoSource::DEBIAN};
 
     m_totalCount = m_sources.size();
 }
@@ -51,7 +51,7 @@ void SyncManager::startSync() {
 
                 if (src.distro == "Arch Linux") m_archPkgs.append(badged);
                 else if (src.distro == "Alpine Linux") m_alpinePkgs.append(badged);
-                else if (src.distro == "Debian/Ubuntu") m_debianPkgs.append(badged);
+                else if (src.distro == "Debian") m_debianPkgs.append(badged);
 
                 mapper->addDistroPackages(src.distro, badged);
                 emit logMessage(QString("%1 [%2]: Found %3 packages.").arg(src.distro).arg(src.repoLabel).arg(pkgs.size()));

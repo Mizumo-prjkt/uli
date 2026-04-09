@@ -17,7 +17,6 @@ public:
         uli::package_mgr::PackageIndexer::TranslationMap kde_map = {
             {"Arch Linux", {"plasma-meta", "kde-applications-meta", "sddm"}},
             {"Debian", {"kde-plasma-desktop", "sddm"}},
-            {"Ubuntu", {"kubuntu-desktop"}},
             {"Alpine", {"plasma-desktop", "sddm"}}
         };
 

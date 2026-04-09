@@ -25,7 +25,6 @@ public:
         uli::package_mgr::PackageIndexer::TranslationMap base_utils_map = {
             {"Arch Linux", {"base", "base-devel", "linux-firmware", "nano", "vim", "networkmanager"}},
             {"Debian", {"build-essential", "firmware-linux", "nano", "vim", "network-manager"}},
-            {"Ubuntu", {"build-essential", "linux-firmware", "nano", "vim", "network-manager"}},
             {"Alpine", {"alpine-base", "nano", "vim", "networkmanager"}}
         };
 
@@ -41,13 +40,11 @@ public:
             uli::package_mgr::PackageIndexer::TranslationMap amd_map = {
                 {"Arch Linux", {"amd-ucode"}},
                 {"Debian", {"amd64-microcode"}},
-                {"Ubuntu", {"amd64-microcode"}},
                 {"Alpine", {"linux-firmware-amd"}}
             };
             uli::package_mgr::PackageIndexer::TranslationMap intel_map = {
                 {"Arch Linux", {"intel-ucode"}},
                 {"Debian", {"intel-microcode"}},
-                {"Ubuntu", {"intel-microcode"}},
                 {"Alpine", {"intel-ucode"}}
             };
 

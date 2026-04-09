@@ -119,7 +119,7 @@ struct MenuState {
           if (arch_repo_multilib) count++;
           if (count == 0 && custom_c == 0) return "None (WARNING: No sources)";
           return std::to_string(count) + " official, " + std::to_string(custom_c) + " custom";
-      } else if (os_distro == "Debian" || os_distro == "Ubuntu") {
+      } else if (os_distro == "Debian" ) {
           return custom_c == 0 ? "None" : std::to_string(custom_c) + " custom sources";
       } else if (os_distro == "Alpine Linux") {
           int count = 0;

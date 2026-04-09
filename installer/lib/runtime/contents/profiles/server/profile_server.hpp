@@ -17,7 +17,6 @@ public:
         uli::package_mgr::PackageIndexer::TranslationMap ssh_map = {
             {"Arch Linux", {"openssh"}},
             {"Debian", {"openssh-server"}},
-            {"Ubuntu", {"openssh-server"}},
             {"Alpine", {"openssh-server"}}
         };
 

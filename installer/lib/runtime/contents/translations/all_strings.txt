@@ -154,7 +154,6 @@ installer/lib/runtime/ui.hpp:Configuration saved successfully to:
 installer/lib/runtime/ui.hpp:Confirm Installation
 installer/lib/runtime/ui.hpp:Custom Mirror URL (Manual Entry)
 installer/lib/runtime/ui.hpp:Debian natively enforces 'grub' as the default bootloader. Manual selection is bypassed.
-installer/lib/runtime/ui.hpp:Default Ubuntu Archives
 installer/lib/runtime/ui.hpp:Dependencies for 
 installer/lib/runtime/ui.hpp:Do you want to use the default repositories or select specific mirrors?
 installer/lib/runtime/ui.hpp:EFI Directory
@@ -162,7 +161,6 @@ installer/lib/runtime/ui.hpp:Enter bootloader ID/description (default: Alpine Li
 installer/lib/runtime/ui.hpp:Enter bootloader ID/description (default: Arch Linux):
 installer/lib/runtime/ui.hpp:Enter full explicit mirror URL:
 installer/lib/runtime/ui.hpp:Enter full mirror URL. Ref: https://archlinux.org/mirrors/
-installer/lib/runtime/ui.hpp:Enter full mirror URL. Ref: https://launchpad.net/ubuntu/+archivemirrors
 installer/lib/runtime/ui.hpp:Hostname
 installer/lib/runtime/ui.hpp:Installation Blocked
 installer/lib/runtime/ui.hpp:Kernel Selection
@@ -180,7 +178,6 @@ installer/lib/runtime/ui.hpp:Profile
 installer/lib/runtime/ui.hpp:Profile Applied
 installer/lib/runtime/ui.hpp:Root Password
 installer/lib/runtime/ui.hpp:Select Arch Linux mirror behavior
-installer/lib/runtime/ui.hpp:Select Ubuntu mirror behavior
 installer/lib/runtime/ui.hpp:Select audio server
 installer/lib/runtime/ui.hpp:Select bootloader target architecture
 installer/lib/runtime/ui.hpp:Select custom mirrors...

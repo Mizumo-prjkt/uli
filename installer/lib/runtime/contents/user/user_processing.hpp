@@ -23,7 +23,7 @@ public:
     std::stringstream ss;
     ss << "\n";
 
-    bool ext = (os_distro == "Debian" || os_distro == "Ubuntu");
+    bool ext = (os_distro == "Debian" );
     size_t u_w = 8;
     size_t n_w = 9;
 
@@ -186,7 +186,7 @@ public:
         }
 
         // Gather extended properties common in Debian
-        if (os_distro == "Debian" || os_distro == "Ubuntu") {
+        if (os_distro == "Debian" ) {
           if (DialogBox::ask_yes_no(
                   _tr("Extended Information"),
                   _tr("Would you like to assign \"Full Name\", \"Room "

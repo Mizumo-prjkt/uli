@@ -32,7 +32,7 @@ public:
         std::cout << "\n" << DesignUI::DIM << "Refreshing local package trees..." << DesignUI::RESET << "\n";
         
         int status = -1;
-        if (active_distro == "Debian/Ubuntu") {
+        if (active_distro == "Debian") {
             status = std::system("apt-get update -qq > /dev/null 2>&1");
         } else if (active_distro == "Arch Linux") {
             status = std::system("pacman -Sy --noconfirm > /dev/null 2>&1");
@@ -54,7 +54,7 @@ public:
     static std::string visual_search_package(const std::string& active_distro, const std::string& query) {
         std::string cmd = "";
         
-        if (active_distro == "Debian/Ubuntu") {
+        if (active_distro == "Debian") {
              cmd = "apt-cache search " + query + " | head -n 5";
         } else if (active_distro == "Arch Linux") {
              cmd = "pacman -Ss " + query + " | grep -v '    ' | head -n 5";

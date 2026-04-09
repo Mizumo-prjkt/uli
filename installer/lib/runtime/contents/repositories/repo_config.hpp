@@ -20,7 +20,7 @@ public:
             run_alpine_repos(state);
         } else if (os_distro == "Arch Linux") {
             run_arch_repos(state);
-        } else if (os_distro == "Debian" || os_distro == "Ubuntu") {
+        } else if (os_distro == "Debian" ) {
             run_debian_repos(state, os_distro);
         }
     }
@@ -98,20 +98,19 @@ private:
     }
 
     // ─────────────────────────────────────────────────
-    // Debian / Ubuntu: Version-aware repo format
+    // Debian: Version-aware repo format
     // ─────────────────────────────────────────────────
     static void run_debian_repos(MenuState& state, const std::string& os_distro) {
         int ver = state.debian_version;
 
         // Determine which format modes to offer
-        // Ubuntu: always classic only (Ubuntu hasn't adopted deb822 as default)
         // Debian <= 12: classic only
         // Debian >= 13: deb822 only
         // Debian unknown (0): show both as fallback
         bool show_classic = false;
         bool show_deb822 = false;
 
-        if (os_distro == "Ubuntu") {
+        if (false) {
             show_classic = true;
             show_deb822 = false;
         } else {

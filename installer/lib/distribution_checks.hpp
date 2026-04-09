@@ -40,8 +40,8 @@ inline DistroType detect_distribution() {
     }
 
     // Check ID and ID_LIKE against known patterns
-    if (id == "debian" || id == "ubuntu" || id == "kali" || 
-        id_like.find("debian") != std::string::npos || id_like.find("ubuntu") != std::string::npos) {
+    if (id == "debian" || id == "kali" || 
+        id_like.find("debian") != std::string::npos) {
         return DistroType::DEBIAN;
     } else if (id == "arch" || id == "manjaro" || id == "endeavouros" || id == "artix" ||
                id_like.find("arch") != std::string::npos) {

@@ -119,15 +119,6 @@ public:
                         std::string url = DialogBox::ask_input(_tr("Mirror Settings"), _tr("Enter full mirror URL. Ref: https://archlinux.org/mirrors/"));
                         if (!url.empty()) state.active_mirrors = {url};
                     }
-                } else if (os_distro == "Ubuntu") {
-                    std::vector<std::string> opts = {_tr("Default Ubuntu Archives"), _tr("Custom Mirror URL (Manual Entry)")};
-                    int res = DialogBox::ask_selection(_tr("Mirror Region"), _tr("Select Ubuntu mirror behavior"), opts);
-                    if (res == 0) {
-                        state.active_mirrors = {"Default"};
-                    } else if (res == 1) {
-                        std::string url = DialogBox::ask_input(_tr("Mirror Settings"), _tr("Enter full mirror URL. Ref: https://launchpad.net/ubuntu/+archivemirrors"));
-                        if (!url.empty()) state.active_mirrors = {url};
-                    }
                 } else if (os_distro == "Debian" || os_distro == "Alpine Linux") {
                     std::vector<std::string> initial_opts = {_tr("Use Default Mirrors Only"), _tr("Select custom mirrors...")};
                     int initial_res = DialogBox::ask_selection(_tr("Mirror Region"), _tr("Do you want to use the default repositories or select specific mirrors?"), initial_opts);

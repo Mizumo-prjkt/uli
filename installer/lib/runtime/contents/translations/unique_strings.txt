@@ -31,7 +31,6 @@ Create an active Home Directory (/home/
 Create new deferred partition
 Custom Mirror URL (Manual Entry)
 Debian natively enforces 'grub' as the default bootloader. Manual selection is bypassed.
-Default Ubuntu Archives
 Delete Account
 Delete Partition
 Dependencies for 
@@ -50,7 +49,6 @@ Enter bootloader ID/description (default: Alpine Linux):
 Enter bootloader ID/description (default: Arch Linux):
 Enter full explicit mirror URL:
 Enter full mirror URL. Ref: https://archlinux.org/mirrors/
-Enter full mirror URL. Ref: https://launchpad.net/ubuntu/+archivemirrors
 Enter new Full Name:
 Enter new Volume Label:
 Enter new username:
@@ -137,7 +135,6 @@ Room Number (optional):
 Root Password
 Save configuration
 Select Arch Linux mirror behavior
-Select Ubuntu mirror behavior
 Select an installation target:
 Select audio server
 Select bootloader target architecture

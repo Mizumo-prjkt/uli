@@ -100,7 +100,7 @@ public:
     static std::unique_ptr<DebugRepoFetcher> create(const std::string& distro) {
         if (distro == "arch") return std::make_unique<ArchDebugFetcher>();
         if (distro == "alpine") return std::make_unique<AlpineDebugFetcher>();
-        if (distro == "debian" || distro == "ubuntu") return std::make_unique<DebianDebugFetcher>();
+        if (distro == "debian") return std::make_unique<DebianDebugFetcher>();
         return nullptr;
     }
 };

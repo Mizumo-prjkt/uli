@@ -26,7 +26,7 @@ bool ProfileImporter::importFromYaml(const QString &path, ProfileSpec &spec) {
         // Distro logic reconstruction
         if (config["arch_repo_core"]) spec.targetDistro = "Arch Linux";
         else if (config["alpine_repo_main"]) spec.targetDistro = "Alpine Linux";
-        else spec.targetDistro = "Debian/Ubuntu";
+        else spec.targetDistro = "Debian";
 
         spec.isAgnostic = (config["arch_repo_core"] && config["alpine_repo_main"]);
 

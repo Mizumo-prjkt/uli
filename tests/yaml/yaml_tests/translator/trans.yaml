@@ -1,5 +1,5 @@
 # ULI Translation Dictionary
-# Target: Debian (and derivatives like Ubuntu/Pop!_OS)
+# Target: Debian 
 schema_version: "1.0"
 distro_id: "debian"
 distro_family: "debian"

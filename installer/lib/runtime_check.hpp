@@ -19,11 +19,9 @@ public:
         std::string line;
         if (std::getline(file, line)) {
             // Check for standard indicators of a Live CD or USB environment
-            // casper: Ubuntu based distros
             // archiso: Arch based distros
             // boot=live: Standard debian live config
             // vtoy / VTOY: Indicator of Ventoy multiboot payload execution
-            if (line.find("casper") != std::string::npos || 
                 line.find("archiso") != std::string::npos || 
                 line.find("boot=live") != std::string::npos || 
                 line.find("vtoy") != std::string::npos || 

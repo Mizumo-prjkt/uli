@@ -441,7 +441,7 @@ public:
     // Wrap the package lookup cache and return selected
     static std::vector<std::string> handle_package_search(const std::string& active_distro, std::vector<std::string> current_pkgs, const MenuState& state) {
         std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
-        if (active_distro == "Debian" || active_distro == "Ubuntu") {
+        if (active_distro == "Debian" ) {
             pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
         } else if (active_distro == "Arch Linux") {
             pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();

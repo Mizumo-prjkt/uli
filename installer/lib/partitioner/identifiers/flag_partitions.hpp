@@ -23,7 +23,7 @@ public:
                 rec += "the ArchWiki " + fs_type + " reference page.";
                 break;
             case uli::checks::DistroType::DEBIAN:
-                rec += "the Ubuntu/Debian community help wikis for " + fs_type + ", or the ArchWiki.";
+                rec += "the Debian community help wikis for " + fs_type + ", or the ArchWiki.";
                 break;
             default:
                 rec += "your distribution's documentation or the ArchWiki " + fs_type + " reference page.";
