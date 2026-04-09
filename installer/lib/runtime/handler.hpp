@@ -22,6 +22,7 @@
 #include "manual_part.hpp"
 #include "../partitioner/sgdisk/sgdisk_wrapper.hpp"
 #include "../partitioner/format/mkfs_wrapper.hpp"
+#include "../partitioner/format/mount_wrapper.hpp"
 #include "../partitioner/identifiers/blkid_wrapper.hpp"
 
 namespace uli {
@@ -334,6 +335,80 @@ public:
             std::cout << "[mkfs] " << dev_part_path << " cleanly formatted. PARTUUID=" << p.partuuid << "\n";
         }
         return true;
+    }
+
+    // Mounts all partitions in the correct order specifically for Arch Linux
+    static bool mount_all_partitions(MenuState& state, const std::string& distro) {
+        if (distro != "Arch Linux") return true;
+
+        // 1. Initial Cleanup: Ensure /mnt is fresh and free
+        uli::partitioner::format::MountWrapper::swapoff_all();
+        uli::partitioner::format::MountWrapper::umount_recursive("/mnt");
+
+        // Sort partitions: Swap first, then Root, then others by path depth
+        std::vector<PartitionConfig> sorted_parts = state.partitions;
+        std::sort(sorted_parts.begin(), sorted_parts.end(), [](const PartitionConfig& a, const PartitionConfig& b) {
+            if (a.fs_type == "swap" && b.fs_type != "swap") return true;
+            if (a.fs_type != "swap" && b.fs_type == "swap") return false;
+            if (a.mount_point == "/" && b.mount_point != "/") return true;
+            if (a.mount_point != "/" && b.mount_point == "/") return false;
+            return a.mount_point.length() < b.mount_point.length();
+        });
+
+        for (const auto& p : sorted_parts) {
+            if (p.device_path.empty()) continue;
+
+            if (p.fs_type == "swap") {
+                if (!uli::partitioner::format::MountWrapper::swapon(p.device_path)) {
+                    Warn::print_error("Failed to initialize swap on " + p.device_path);
+                    return false;
+                }
+            } else if (p.mount_point == "/") {
+                if (!uli::partitioner::format::MountWrapper::mount(p.device_path, "/mnt")) {
+                    Warn::print_error("Failed to mount Root partition to /mnt");
+                    return false;
+                }
+            } else if (!p.mount_point.empty()) {
+                std::string target = "/mnt" + p.mount_point;
+                if (!uli::partitioner::format::MountWrapper::mount(p.device_path, target)) {
+                    Warn::print_error("Failed to mount " + p.mount_point + " to " + target);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // Safely unmounts everything to prevent corrupted mount states on failure
+    static void cleanup_mounts(MenuState& state, const std::string& distro) {
+        if (distro != "Arch Linux") return;
+        uli::partitioner::format::MountWrapper::swapoff_all();
+        uli::partitioner::format::MountWrapper::umount_recursive("/mnt");
+    }
+
+    // Ensures essential packages are present for a bootable Arch system
+    static std::vector<std::string> refine_package_list(const std::string& distro, const MenuState& state) {
+        std::vector<std::string> final_list = state.additional_packages;
+        if (distro == "Arch Linux") {
+            auto ensure_pkg = [&](const std::string& pkg) {
+                if (std::find(final_list.begin(), final_list.end(), pkg) == final_list.end()) {
+                    final_list.push_back(pkg);
+                }
+            };
+            ensure_pkg("base");
+            ensure_pkg("linux-firmware");
+            
+            // Kernel is already in state.kernel (default "linux"), also ensure headers if requested
+            if (!state.kernel.empty()) ensure_pkg(state.kernel);
+        }
+        return final_list;
+    }
+
+    // Generates fstab for the target system using genfstab (Arch Specific)
+    static bool generate_fstab(const std::string& mount_point) {
+        std::cout << "[fstab] Generating /etc/fstab for target " << mount_point << "..." << std::endl;
+        std::string cmd = "genfstab -U " + mount_point + " >> " + mount_point + "/etc/fstab 2>/dev/null";
+        return (std::system(cmd.c_str()) == 0);
     }
 
     // Wrap the package lookup cache and return selected

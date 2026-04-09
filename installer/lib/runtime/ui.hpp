@@ -379,11 +379,47 @@ public:
             return;
         }
 
-        // 2. Generate requested Locales 
+        // 2. Mount partitions and activate swap (Arch Specific)
+        if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
+            Warn::print_error("Halting Installation: Mounting failed.");
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            return;
+        }
+
+        // 3. Refine package list and build final command
+        auto final_pkgs = uli::runtime::UIHandler::refine_package_list(os_distro, state);
+        
+        std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
+        if (os_distro == "Arch Linux") pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
+        else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
+        else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
+        
+        // Re-load translation for the PM instance if needed...
+        std::string command = pm->build_install_command(final_pkgs);
+        std::cout << "\n[INFO] Executing Final Installation Command: " << command << std::endl;
+
+        // Perform actual installation (simplified for now to system() call on host)
+        if (std::system(command.c_str()) != 0) {
+            Warn::print_error("Installation command failed! Check logs for details.");
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            return;
+        }
+
+        // 4. Generate fstab (Arch Specific)
+        if (os_distro == "Arch Linux") {
+            if (!uli::runtime::UIHandler::generate_fstab("/mnt")) {
+                Warn::print_error("Failed to generate /etc/fstab!");
+            }
+        }
+
+        // 5. Generate requested Locales 
         if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
             Warn::print_info("Executing Locale Generation: " + state.locale_language + "." + state.locale_encoding);
             uli::localegen::LocaleGenerator::generate_locales(state.drive, state.locale_language, state.locale_encoding);
         }
+
+        Warn::print_info("Installation stage complete. Unmounting target...");
+        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
     }
 };
 

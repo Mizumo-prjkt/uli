@@ -375,17 +375,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Verification PKGs
-    std::vector<std::string> abstract_pkgs = {"base_system", "kernel", "base_devel", "python", "git", "web_server"};
-    
-    // Check if we are in bootstrap mode (installing to /mnt)
+    // Handle Bootstrap environment detection
     if (uli::env::RuntimeEnv::is_live_environment()) {
         setenv("ULI_BOOTSTRAP", "1", 1);
     }
-
-    std::string command = pm->build_install_command(abstract_pkgs);
-    std::cout << "\nGenerated Install Command (" << (std::getenv("ULI_BOOTSTRAP") ? "Bootstrap" : "Host") << "):" << std::endl;
-    std::cout << "  " << command << std::endl;
 
     if (!bootargs.unattended) {
         std::cout << "\n[INFO] Interactive Mode sequence initiated...\n";
