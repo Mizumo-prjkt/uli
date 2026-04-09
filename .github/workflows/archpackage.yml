@@ -80,8 +80,8 @@ jobs:
           useradd -m builder
           chown -R builder:builder .
           sudo -u builder makepkg --printsrcinfo > .SRCINFO
-          # Optional: actually check the build validity (takes time)
-          # sudo -u builder makepkg --syncdeps --noconfirm --nocheck
+          # Restore ownership to the host user (UID 1001 is standard for GH Runners)
+          chown -R 1001:1001 .
         "
 
     - name: Setup SSH for AUR
