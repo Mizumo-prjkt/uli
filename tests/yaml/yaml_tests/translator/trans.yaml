@@ -1,0 +1,61 @@
+# ULI Translation Dictionary
+# Target: Debian (and derivatives like Ubuntu/Pop!_OS)
+schema_version: "1.0"
+distro_id: "debian"
+distro_family: "debian"
+
+# 1. Package Manager Native Commands
+# This tells the engine exactly how to execute package operations
+package_manager:
+  binary: "apt-get"
+  update_cmd: "apt-get update"
+  install_cmd: "DEBIAN_FRONTEND=noninteractive apt-get install -y"
+  remove_cmd: "DEBIAN_FRONTEND=noninteractive apt-get remove -y"
+  clean_cmd: "apt-get autoremove -y && apt-get clean"
+
+# 2. Package Translation Map
+# Maps the "abstract" ULI package name to the native Debian package name(s)
+package_map:
+  # Core & Development
+  base_devel: "build-essential"
+  kernel_headers: "linux-headers-amd64"
+  python: "python3 python3-pip python3-venv" # Debian strictly splits Python packages
+  
+  # Networking & Remote Access
+  ssh: "openssh-server"
+  network_manager: "network-manager"
+  firewall: "ufw"
+  curl: "curl"
+  wget: "wget"
+  
+  # Web & Database Servers
+  apache: "apache2"
+  nginx: "nginx"
+  mysql: "mariadb-server"          # Debian defaults to MariaDB over MySQL
+  postgres: "postgresql postgresql-contrib"
+  php: "php php-cli php-fpm php-mysql"
+  
+  # Time & Boot Utilities
+  ntp_systemd: "systemd-timesyncd"
+  ntp_chrony: "chrony"
+  plymouth: "plymouth plymouth-themes"
+  bootloader: "grub-efi-amd64"
+  
+  # Desktop & GUI (if hybrid mode selects a workstation profile)
+  firefox: "firefox-esr"           # Extended Support Release is standard on Debian
+  x11: "xorg"
+  gnome_minimal: "gnome-core"
+  kde_minimal: "kde-plasma-desktop"
+
+# 3. Service Management Translation Map
+# Maps the abstract service name to the exact systemctl service name
+service_map:
+  enable_cmd: "systemctl enable"
+  start_cmd: "systemctl start"
+  services:
+    ssh: "ssh"                     # On Debian it's 'ssh', on Arch it's 'sshd'
+    apache: "apache2"
+    mysql: "mariadb"
+    network: "NetworkManager"
+    ntp: "systemd-timesyncd"
+    firewall: "ufw"

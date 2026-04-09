@@ -1,0 +1,68 @@
+# Universal Linux Installer (ULI) - Deployment Profile
+schema_version: "1.0"
+profile_name: "Standard Web Server"
+
+# 1. System Configuration
+system:
+  hostname: "uli-web-node01"
+  timezone: "Asia/Manila"
+  locale: "en_US.UTF-8"
+  keymap: "us"
+  
+# New NTP Configuration
+  ntp:
+    provider: "systemd-timesyncd"  # standard options: systemd-timesyncd, chrony, openntpd
+    servers:                       # defaults to Google's public NTP
+      - "time.google.com"
+      - "time2.google.com"
+      - "time3.google.com"
+
+# 2. Boot & Kernel Configuration
+boot:
+  enable_plymouth: true            # Installs plymouth and configures splash screen
+  plymouth_theme: "spinner"        # Optional: defines the default visual theme
+  kernel_args: "quiet loglevel=3"  # Standard silent boot args
+
+# 3. Disk Partitioning (Restricted to ext4, fat32, swap per limitations)
+storage:
+  target_device: "/dev/sda"  # The TUI could override this if needed
+  wipe_disk: true
+  partitions:
+    - name: "efi"
+      size: "512M"
+      filesystem: "fat32"
+      mount_point: "/boot/efi"
+      bootable: true
+    - name: "swap"
+      size: "4G"
+      filesystem: "swap"
+      mount_point: "[SWAP]"
+    - name: "root"
+      size: "MAX"            # Uses all remaining unallocated space
+      filesystem: "ext4"
+      mount_point: "/"
+
+# 4. User Management
+users:
+  - username: "root"
+    password: "RootPassword123!" # In production, this would be a hash
+  - username: "sysadmin"
+    password: "AdminPassword123!"
+    groups: ["wheel", "sudo"]    # Engine handles mapping 'wheel' (Arch/Alpine) vs 'sudo' (Debian)
+    create_home: true
+
+# 5. Package Management (Agnostic Application Layer)
+software:
+  install_base_devel: true       # Triggers build-essential (Debian), base-devel (Arch), alpine-sdk (Alpine)
+  packages:
+    - "git"
+    - "vim"
+    - "curl"
+    - "nginx"
+    - "openssh"                  # Engine maps to openssh-server (Debian) or openssh (Arch/Alpine)
+
+# 6. Post-Install Operations
+services:
+  enable_on_boot:
+    - "nginx"
+    - "sshd"                     # Engine maps to ssh (Debian) or sshd (Arch/Alpine)

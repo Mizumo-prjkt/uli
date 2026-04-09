@@ -1,0 +1,154 @@
+================================================
+  ULI Patcher — ISO Injection Tool
+================================================
+  Source ISO:  /home/teto/Documents/uli/test_data/archlinux-2026.04.01-x86_64.iso
+  Installer:   /home/teto/Documents/uli/build/uli_installer
+  Profile:     /home/teto/Documents/uli/test_profile.yaml
+  Output ISO:  /home/teto/Documents/uli/test_data/archlinux-uli-final.iso
+  Dry Run:     No
+================================================
+[Patcher] Using xorriso C API backend (libisoburn linked)
+Copying of file objects from ISO image to disk filesystem is: Enabled
+[Patcher] Backend: xorriso-api
+
+[Step 1/6] Opening source ISO...
+xorriso : NOTE : ISO image bears MBR with  -boot_image any partition_offset=16
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :     110 nodes read in 1 seconds
+libisofs: NOTE : Found hidden El-Torito image for EFI.
+libisofs: NOTE : EFI image start and load size: 621376 * 2048 , 0 * 512
+libisofs: NOTE : Roughly estimated EFI image size: 264241152 bytes
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -indev '/home/teto/Documents/uli/test_data/archlinux-2026.04.01-x86_64.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito , MBR isohybrid cyl-align-off GPT
+Media summary: 1 session, 750416 data blocks, 1466m data, 26.4g free
+Volume id    : 'ARCH_202604'
+
+[Step 2/6] Detecting boot configurations...
+[BootDetector] Scanning ISO for boot configurations...
+[BootDetector] Probing: /boot/grub/grub.cfg
+xorriso : FAILURE : Cannot find path '/boot/grub/grub.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /EFI/BOOT/grub.cfg
+xorriso : FAILURE : Cannot find path '/EFI/BOOT/grub.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /boot/grub/loopback.cfg
+'/boot/grub/loopback.cfg'
+[BootDetector]   Found: /boot/grub/loopback.cfg (GRUB)
+[BootDetector] Probing: /grub/grub.cfg
+xorriso : FAILURE : Cannot find path '/grub/grub.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /isolinux/isolinux.cfg
+xorriso : FAILURE : Cannot find path '/isolinux/isolinux.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /syslinux/syslinux.cfg
+xorriso : FAILURE : Cannot find path '/syslinux/syslinux.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /boot/syslinux/syslinux.cfg
+'/boot/syslinux/syslinux.cfg'
+[BootDetector]   Found: /boot/syslinux/syslinux.cfg (Isolinux/Syslinux)
+[BootDetector] Probing: /isolinux/txt.cfg
+xorriso : FAILURE : Cannot find path '/isolinux/txt.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /boot/isolinux/isolinux.cfg
+xorriso : FAILURE : Cannot find path '/boot/isolinux/isolinux.cfg' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+[BootDetector] Probing: /loader/entries/01-archiso-linux.conf
+'/loader/entries/01-archiso-linux.conf'
+[BootDetector]   Found: /loader/entries/01-archiso-linux.conf (systemd-boot)
+[BootDetector] Probing: /loader/entries/archiso-x86_64-linux.conf
+xorriso : FAILURE : Cannot find path '/loader/entries/archiso-x86_64-linux.conf' in loaded ISO image
+xorriso : NOTE : Tolerated problem event of severity 'FAILURE'
+
+[Step 3/6] Injecting ULI files...
+Created directory in ISO image: '/uli'
+xorriso : UPDATE :       1 files added in 1 seconds
+Added to ISO image: file '/uli/uli_installer'='/home/teto/Documents/uli/build/uli_installer'
+  [+] /uli/uli_installer
+xorriso : UPDATE :       1 files added in 1 seconds
+Added to ISO image: file '/uli/profile.yaml'='/home/teto/Documents/uli/test_profile.yaml'
+  [+] /uli/profile.yaml
+
+[Step 4/6] Generating autostart hook...
+[AutostartGen] Generated autostart script: /tmp/uli_patcher_work_22297/autostart.sh
+xorriso : UPDATE :       1 files added in 1 seconds
+Added to ISO image: file '/uli/autostart.sh'='/tmp/uli_patcher_work_22297/autostart.sh'
+  [+] /uli/autostart.sh
+
+[Step 5/6] Injecting boot menu entries...
+[BootInjector] Processing: /boot/grub/loopback.cfg (GRUB)
+xorriso : UPDATE :       1 files restored (  3035b) in 1 seconds = 0.0xD
+Extracted from ISO image: file '/boot/grub/loopback.cfg'='/tmp/uli_patcher_work_22297/boot_config_0'
+[BootDetector] Parsed GRUB entry:
+    kernel:  /arch/boot/x86_64/vmlinuz-linux
+    initrd:  /arch/boot/x86_64/initramfs-linux.img
+    params:  archisobasedir=arch img_dev=UUID=${archiso_img_dev_uuid} img_loop="${iso_path}"
+xorriso : UPDATE :       1 files added in 1 seconds
+Added to ISO image: file '/boot/grub/loopback.cfg'='/tmp/uli_patcher_work_22297/modified_boot_0'
+[BootInjector] Successfully injected ULI entry into /boot/grub/loopback.cfg
+[BootInjector] Processing: /boot/syslinux/syslinux.cfg (Isolinux/Syslinux)
+xorriso : UPDATE :       1 files restored (   153b) in 1 seconds = 0.0xD
+Extracted from ISO image: file '/boot/syslinux/syslinux.cfg'='/tmp/uli_patcher_work_22297/boot_config_1'
+[BootInjector] Could not parse any kernel entry from /boot/syslinux/syslinux.cfg, skipping.
+[BootInjector] Processing: /loader/entries/01-archiso-linux.conf (systemd-boot)
+xorriso : UPDATE :       1 files restored (   220b) in 1 seconds = 0.0xD
+Extracted from ISO image: file '/loader/entries/01-archiso-linux.conf'='/tmp/uli_patcher_work_22297/boot_config_1'
+[BootDetector] Parsed Systemd-boot entry:
+    kernel:  /arch/boot/x86_64/vmlinuz-linux
+    initrd:  /arch/boot/x86_64/initramfs-linux.img
+    options: archisobasedir=arch archisosearchuuid=2026-04-01-15-12-08-00
+xorriso : UPDATE :       1 files added in 1 seconds
+Added to ISO image: file '/loader/entries/00-uli.conf'='/tmp/uli_patcher_work_22297/modified_boot_1'
+[BootInjector] Successfully injected ULI entry into /loader/entries/00-uli.conf
+  [+] Modified 2/3 boot configuration(s)
+
+[Step 6/6] Writing patched ISO...
+Drive current: -outdev '/home/teto/Documents/uli/test_data/archlinux-uli-final.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data, 27.8g free
+xorriso : NOTE : Replayed 19 boot related commands
+xorriso : NOTE : Copying to System Area: 32768 bytes from file '--interval:imported_iso:0s-15s:zero_mbrpt,zero_gpt:/home/teto/Documents/uli/test_data/archlinux-2026.04.01-x86_64.iso'
+libisofs: NOTE : Automatically adjusted MBR geometry to 1024/76/32
+libisofs: NOTE : Appended GPT partition becomes number 3 instead of desired 2
+xorriso : UPDATE : Writing:       8192s    1.1%   fifo  13%  buf  50%
+xorriso : UPDATE : Writing:      49152s    6.5%   fifo  32%  buf  50%  120.7xD 
+xorriso : UPDATE : Writing:     139264s   18.5%   fifo   7%  buf  50%  132.9xD 
+xorriso : UPDATE : Writing:     227517s   30.3%   fifo   1%  buf  50%  130.3xD 
+xorriso : UPDATE : Writing:     314013s   41.8%   fifo   0%  buf  50%  127.8xD 
+xorriso : UPDATE : Writing:     406621s   54.1%   fifo   0%  buf  50%  136.8xD 
+xorriso : UPDATE : Writing:     489760s   65.2%   fifo   1%  buf  50%  122.7xD 
+xorriso : UPDATE : Writing:     557056s   74.1%   fifo  35%  buf  50%   99.4xD 
+xorriso : UPDATE : Writing:     608733s   81.0%   fifo   0%  buf  50%   76.1xD 
+xorriso : UPDATE : Writing:     647168s   86.1%   fifo  33%  buf  50%   56.6xD 
+xorriso : UPDATE : Writing:     688128s   91.6%   fifo   8%  buf  50%   60.0xD 
+xorriso : UPDATE : Writing:     741349s   98.7%   fifo   0%  buf  50%   78.5xD 
+ISO image produced: 751157 sectors
+Written to medium : 751312 sectors at LBA 48
+Writing to '/home/teto/Documents/uli/test_data/archlinux-uli-final.iso' completed successfully.
+
+xorriso : NOTE : Re-assessing -outdev '/home/teto/Documents/uli/test_data/archlinux-uli-final.iso'
+xorriso : NOTE : ISO image bears MBR with  -boot_image any partition_offset=16
+xorriso : NOTE : Loading ISO image tree from LBA 0
+xorriso : UPDATE :     115 nodes read in 1 seconds
+libisofs: NOTE : Found hidden El-Torito image for EFI.
+libisofs: NOTE : EFI image start and load size: 622165 * 2048 , 0 * 512
+libisofs: NOTE : Roughly estimated EFI image size: 264241152 bytes
+xorriso : NOTE : Detected El-Torito boot information which currently is set to be discarded
+Drive current: -dev '/home/teto/Documents/uli/test_data/archlinux-uli-final.iso'
+Media current: stdio file, overwriteable
+Media status : is written , is appendable
+Boot record  : El Torito , MBR isohybrid cyl-align-off GPT
+Media summary: 1 session, 751157 data blocks, 1467m data, 26.4g free
+Volume id    : 'ARCH_202604'
+
+================================================
+  Patching Complete!
+  Output: /home/teto/Documents/uli/test_data/archlinux-uli-final.iso
+  Size:   1467 MiB
+================================================
+
+To test:
+  qemu-system-x86_64 -cdrom /home/teto/Documents/uli/test_data/archlinux-uli-final.iso -m 2G
