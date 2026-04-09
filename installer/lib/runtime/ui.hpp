@@ -367,11 +367,14 @@ public:
             // Other indices are purposefully ignored/unimplemented for now while scaffolding
         }
 
+        execute_install(os_distro, state);
+    }
+
+    // Static helper to execute the final installation sequence
+    static void execute_install(const std::string& os_distro, MenuState& state) {
         DesignUI::clear_screen();
-        Warn::print_info("Interactive Configuration Complete.");
-        Warn::print_info("Proceeding to unpack the base environment into " + state.drive + "...");
-        
-        // Final execute bindings for state.drive and packages...
+        Warn::print_info("Installation sequence initiated for " + os_distro);
+        Warn::print_info("Target Environment: " + state.drive);
         
         // 1. Run the deferred format destruction layout logic
         if (!uli::runtime::UIHandler::execute_deferred_partitions(state)) {
@@ -394,11 +397,10 @@ public:
         else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
         else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
         
-        // Re-load translation for the PM instance if needed...
         std::string command = pm->build_install_command(final_pkgs);
         std::cout << "\n[INFO] Executing Final Installation Command: " << command << std::endl;
 
-        // Perform actual installation (simplified for now to system() call on host)
+        // Perform actual installation
         if (std::system(command.c_str()) != 0) {
             Warn::print_error("Installation command failed! Check logs for details.");
             uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
@@ -420,6 +422,7 @@ public:
 
         Warn::print_info("Installation stage complete. Unmounting target...");
         uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+        Warn::print_info("All operations finished. You may now reboot.");
     }
 };
 

@@ -82,9 +82,17 @@ public:
       pinfo.size_bytes = sz;
       override_parts.push_back(pinfo);
     }
+
+    bool has_swap = false;
+    for (const auto& p : state.partitions) if (p.fs_type == "swap") has_swap = true;
+
     std::string out = uli::runtime::contents::drive::DiskGraph::
         get_disk_layout_string_from_parts(disk_path, total_bytes,
                                           override_parts);
+    
+    if (!has_swap && !state.partitions.empty()) {
+        out += "\n" + std::string(DesignUI::DIM) + _tr("(Note: No swap configured)") + DesignUI::RESET;
+    }
     return out;
   }
 

@@ -395,7 +395,7 @@ int main(int argc, char* argv[]) {
         if (!final_profile.empty()) {
             std::cout << "[INFO] Loading configuration profile: " << final_profile << std::endl;
             if (!uli::runtime::config::ConfigLoader::load_yaml_to_menu_state(final_profile, preloaded_state)) {
-                std::cerr << "[ERROR] Configuration loading failed. Aborting to prevent unpredictable installation." << std::endl;
+                std::cerr << "[ERROR] Configuration loading failed. Aborting." << std::endl;
                 uli::runtime::TermCapableCheck::exit_alternate_screen();
                 return 1;
             }
@@ -404,33 +404,27 @@ int main(int argc, char* argv[]) {
         uli::runtime::UIManager::start_ui(distro_name, detected_debian_version, preloaded_state);
     } else {
         std::cout << "\n[INFO] Unattended Mode sequence initiated. Processing config instructions automatically.\n";
-        // Run Disk Partition Analysis
-        std::cout << "\n--- Logical Partition Evaluator ---" << std::endl;
-        // Mock user preference from config or yaml logic: e.g., "" means 'auto select' 
-        std::string user_disk_preference = "";
-        std::string final_install_disk = uli::partitioner::DiskCheck::select_target_disk(user_disk_preference);
         
-        if (final_install_disk.empty()) {
-             std::cout << "[INFO] Installation halted. Disk check evaluation declined further modifications.\n";
-        } else {
-             std::cout << "[INFO] Final Verified Installation Block: " << final_install_disk << std::endl;
-             // uli::partitioner::partdisk::PartDisk::prepare_efi_layout(final_install_disk);
+        uli::runtime::MenuState preloaded_state;
+        std::string final_profile = cli_profile_path;
+        if (final_profile.empty()) final_profile = bootargs.config_file;
+
+        if (!final_profile.empty()) {
+            if (!uli::runtime::config::ConfigLoader::load_yaml_to_menu_state(final_profile, preloaded_state)) {
+                std::cerr << "[ERROR] Configuration loading failed for unattended mode." << std::endl;
+                return 1;
+            }
         }
-    }
 
-    std::string chroot_cmd = "chroot";
-    if (distro_name == "Arch Linux") {
-        chroot_cmd = "arch-chroot";
-    }
+        if (preloaded_state.drive.empty() || preloaded_state.drive == "None") {
+            Warn::print_error("Unattended halt: No valid disk target identified in profile.");
+            return 1;
+        }
 
-    // Authorization Test
-    if (!uli::hook::ChrootHook::is_root()) {
-        std::cout << "\n[INFO] Normal user execution detected. Chroot execution capabilities are disabled.\n";
-        std::cout << "To test chroot, please run uli_installer as root (sudo).\n";
-    } else {
-        std::cout << "\n[INFO] Root privileges detected. Assuming /mnt is bootstrap target. Using command: " << chroot_cmd << "\n";
-        // Uncomment to execute:
-        // uli::hook::ChrootHook::execute_in_chroot("/mnt", command, chroot_cmd);
+        Warn::print_info("Target verified: " + preloaded_state.drive);
+        
+        // Execute the full installation pipeline
+        uli::runtime::UIManager::execute_install(distro_name, preloaded_state);
     }
 
     return 0;

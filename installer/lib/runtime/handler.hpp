@@ -179,13 +179,34 @@ public:
                     else if (strat_sel == 2) logic_path = 1;
                     else if (strat_sel == 3) logic_path = 2;
                     else if (strat_sel == 4) logic_path = 3;
+
+                    // Swap Acknowledgment / Request
+                    bool include_swap = false;
+                    if (available_bytes > 10LL * 1024 * 1024 * 1024) { // Only suggest if > 10GB
+                        std::vector<std::string> swap_choices = {_tr("Include 4GiB Swap Partition"), _tr("No Swap Partition (Acknowledge)")};
+                        int swap_sel = DialogBox::ask_selection(_tr("Swap Configuration"), _tr("Do you want to include a swap partition?"), swap_choices, banner_func);
+                        if (swap_sel == 0) include_swap = true;
+                        else if (swap_sel == -1) continue; 
+                    }
                     
+                    if (include_swap) {
+                        PartitionConfig swap_p;
+                        swap_p.part_num = pnum++;
+                        swap_p.fs_type = "swap";
+                        swap_p.mount_point = ""; // Swap has no mount point string
+                        swap_p.type_code = "8200";
+                        swap_p.size_cmd = "+4G";
+                        swap_p.is_deferred = true;
+                        temp_state.partitions.push_back(swap_p);
+                        available_bytes -= (4LL * 1024 * 1024 * 1024);
+                    }
+
                     if (logic_path == 0) { // Unified
                         PartitionConfig root_p;
                         root_p.part_num = pnum++;
                         root_p.fs_type = "ext4";
                         root_p.mount_point = "/";
-                        root_p.type_code = "8300";
+                        root_p.type_code = "8304"; // x86-64 root
                         root_p.size_cmd = "0"; 
                         root_p.is_deferred = true;
                         temp_state.partitions.push_back(root_p);
@@ -194,7 +215,7 @@ public:
                         root_p.part_num = pnum++;
                         root_p.fs_type = "ext4";
                         root_p.mount_point = "/";
-                        root_p.type_code = "8300";
+                        root_p.type_code = "8304";
                         root_p.size_cmd = "+40G"; 
                         root_p.is_deferred = true;
                         temp_state.partitions.push_back(root_p);
@@ -203,7 +224,7 @@ public:
                         home_p.part_num = pnum++;
                         home_p.fs_type = "ext4";
                         home_p.mount_point = "/home";
-                        home_p.type_code = "8300";
+                        home_p.type_code = "8302"; // x86-64 home
                         home_p.size_cmd = "0"; 
                         home_p.is_deferred = true;
                         temp_state.partitions.push_back(home_p);
@@ -212,7 +233,7 @@ public:
                         root_p.part_num = pnum++;
                         root_p.fs_type = "ext4";
                         root_p.mount_point = "/";
-                        root_p.type_code = "8300";
+                        root_p.type_code = "8304";
                         root_p.size_cmd = "+40G"; 
                         root_p.is_deferred = true;
                         temp_state.partitions.push_back(root_p);
@@ -230,7 +251,7 @@ public:
                         home_p.part_num = pnum++;
                         home_p.fs_type = "ext4";
                         home_p.mount_point = "/home";
-                        home_p.type_code = "8300";
+                        home_p.type_code = "8302";
                         home_p.size_cmd = "0"; 
                         home_p.is_deferred = true;
                         temp_state.partitions.push_back(home_p);
@@ -239,7 +260,7 @@ public:
                         root_p.part_num = pnum++;
                         root_p.fs_type = "ext4";
                         root_p.mount_point = "/";
-                        root_p.type_code = "8300";
+                        root_p.type_code = "8304";
                         root_p.size_cmd = "+40G"; 
                         root_p.is_deferred = true;
                         temp_state.partitions.push_back(root_p);
@@ -253,7 +274,7 @@ public:
                         opt_p.is_deferred = true;
                         temp_state.partitions.push_back(opt_p);
                         
-                        PartitionConfig var_p;
+                         PartitionConfig var_p;
                         var_p.part_num = pnum++;
                         var_p.fs_type = "ext4";
                         var_p.mount_point = "/var";
@@ -266,14 +287,20 @@ public:
                         home_p.part_num = pnum++;
                         home_p.fs_type = "ext4";
                         home_p.mount_point = "/home";
-                        home_p.type_code = "8300";
+                        home_p.type_code = "8302";
                         home_p.size_cmd = "0"; 
                         home_p.is_deferred = true;
                         temp_state.partitions.push_back(home_p);
                     }
                     
                     auto preview_banner = [&temp_state, selected_disk]() {
-                        return ManualPartitionWizard::get_dynamic_layout_banner(selected_disk, temp_state);
+                        std::string banner = ManualPartitionWizard::get_dynamic_layout_banner(selected_disk, temp_state);
+                        bool has_swap = false;
+                        for (const auto& p : temp_state.partitions) if (p.fs_type == "swap") has_swap = true;
+                        if (!has_swap) {
+                            banner += "\n\n" + std::string(DesignUI::YELLOW) + _tr("!! WARNING: No Swap partition configured. !!") + DesignUI::RESET;
+                        }
+                        return banner;
                     };
                     
                     std::vector<std::string> confirm_choices = {_tr("Yes, Apply Layout"), _tr("No, Cancel")};
