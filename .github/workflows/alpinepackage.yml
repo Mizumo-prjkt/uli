@@ -26,8 +26,6 @@ jobs:
           git \
           pkgconfig \
           qt6-qtbase-dev \
-          qt6-qtnetwork-dev \
-          qt6-qtwidgets-dev \
           yaml-cpp-dev \
           libarchive-dev \
           dbus-dev \
@@ -67,7 +65,7 @@ jobs:
         url="https://github.com/${{ github.repository }}"
         arch="x86_64"
         license="MIT"
-        depends="qt6-qtbase qt6-qtnetwork qt6-qtwidgets libarchive dbus libisoburn yaml-cpp"
+        depends="qt6-qtbase libarchive dbus libisoburn yaml-cpp"
         makedepends="cmake build-base pkgconfig"
         source=""
         
