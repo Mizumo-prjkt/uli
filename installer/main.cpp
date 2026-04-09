@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
   bool disable_builtin_dict = false;
 
   if (!bootargs.distro_override.empty()) {
-    if (bootargs.distro_override == "debian" ||
+    if (bootargs.distro_override == "debian") {
       current_distro = uli::checks::DistroType::DEBIAN;
     } else if (bootargs.distro_override == "arch") {
       current_distro = uli::checks::DistroType::ARCH;
@@ -326,7 +326,6 @@ int main(int argc, char *argv[]) {
   if (current_distro == uli::checks::DistroType::DEBIAN) {
     pm = std::make_unique<DpkgAptManager>();
     distro_name = "Debian"; // Default fallback
-    }
   } else if (current_distro == uli::checks::DistroType::ARCH) {
     pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
     distro_name = "Arch Linux";

@@ -22,7 +22,7 @@ public:
             // archiso: Arch based distros
             // boot=live: Standard debian live config
             // vtoy / VTOY: Indicator of Ventoy multiboot payload execution
-                line.find("archiso") != std::string::npos || 
+            if (line.find("archiso") != std::string::npos || 
                 line.find("boot=live") != std::string::npos || 
                 line.find("vtoy") != std::string::npos || 
                 line.find("VTOY") != std::string::npos) {
