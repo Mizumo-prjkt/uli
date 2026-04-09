@@ -9,6 +9,7 @@
 #include "dialogbox.hpp"
 #include "warn.hpp"
 #include "handler.hpp"
+#include "post_installer.hpp"
 #include "network_metrics.hpp"
 
 #include "contents/translations/lang_export.hpp"
@@ -402,17 +403,22 @@ public:
 
         std::string command = pm->build_install_command(final_pkgs);
         std::cout << "\n[INFO] Executing Final Installation Command: " << command << std::endl;
+        BlackBox::log("EXEC_INSTALL: " + command);
 
         // Perform actual installation with one-time retry if synchronization failed
         int attempts = 0;
         bool success = false;
         while (attempts < 2) {
-            if (std::system(command.c_str()) == 0) {
+            int ret = std::system(command.c_str());
+            if (ret == 0) {
                 success = true;
+                BlackBox::log("INSTALL_SUCCESS: Command returned 0");
                 break;
             }
             
             attempts++;
+            BlackBox::log("INSTALL_FAIL: Attempt " + std::to_string(attempts) + " failed with return code " + std::to_string(ret));
+            
             if (attempts < 2 && !sync_attempted) {
                 Warn::print_warning("Installation command failed. Attempting emergency synchronization repair...");
                 pm->sync_system();
@@ -440,6 +446,13 @@ public:
         if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
             Warn::print_info("Executing Locale Generation: " + state.locale_language + "." + state.locale_encoding);
             uli::localegen::LocaleGenerator::generate_locales(state.drive, state.locale_language, state.locale_encoding);
+        }
+
+        // 6. Finalize System Configuration (Hostname, Users, Bootloader)
+        if (!uli::runtime::PostInstaller::finalize(state, "/mnt")) {
+            Warn::print_error("Post-installation configuration failed! System may not be bootable.");
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            return;
         }
 
         Warn::print_info("Installation stage complete. Unmounting target...");

@@ -2,6 +2,7 @@
 #define ULI_ALPS_MGR_HPP
 
 #include "../../packagemanager_layer_interface.hpp"
+#include "../../runtime/blackbox.hpp"
 #include "mirrorlist.hpp"
 #include <iostream>
 #include <sstream>
@@ -102,33 +103,43 @@ public:
 
     bool sync_system() override {
         std::cout << "[INFO] Arch Linux sync required. Initializing trust database..." << std::endl;
+        uli::runtime::BlackBox::log("PM_SYNC: Initializing Arch Linux trust database");
         
         // Stage 1: Standard Keyring Initialization
+        uli::runtime::BlackBox::log("PM_SYNC_STAGE1: pacman-key --init");
         std::system("pacman-key --init >/dev/null 2>&1");
+        
+        uli::runtime::BlackBox::log("PM_SYNC_STAGE1: pacman-key --populate");
         std::system("pacman-key --populate archlinux >/dev/null 2>&1");
         
         // Re-test after initialization
         std::string retry_cmd = "pacman -Sy --noprogressbar --noconfirm fastfetch >/dev/null 2>&1";
+        uli::runtime::BlackBox::log("PM_SYNC_HEARTBEAT: Verifying keyring health");
         if (std::system(retry_cmd.c_str()) == 0) {
             std::system("pacman -Rs --noconfirm fastfetch >/dev/null 2>&1");
             std::cout << "[SUCCESS] Arch Linux keyring successfully synchronized." << std::endl;
+            uli::runtime::BlackBox::log("PM_SYNC_SUCCESS: Heartbeat passed");
             return true;
         }
 
         // Stage 2: Last Resort - Disable Signature Verification
+        uli::runtime::BlackBox::log("PM_SYNC_FAIL: Standard keyring sync failed. Entering Commando fallback.");
         std::cout << "\n\033[1;31m[CRITICAL] Keyring synchronization failed.\033[0m" << std::endl;
         std::cout << "[WARNING] Entering 'Commando' fallback mode: Disabling package signature checks." << std::endl;
         
         // Use sed to globally set SigLevel to Never in /etc/pacman.conf
         std::string sed_cmd = "sed -i 's/^SigLevel    =.*/SigLevel = Never/g' /etc/pacman.conf";
+        uli::runtime::BlackBox::log("PM_SYNC_COMMANDO: " + sed_cmd);
         std::system(sed_cmd.c_str());
         
         // Final verification in Never mode
         if (std::system(retry_cmd.c_str()) == 0) {
             std::system("pacman -Rs --noconfirm fastfetch >/dev/null 2>&1");
+            uli::runtime::BlackBox::log("PM_SYNC_SUCCESS: Commando mode heartbeat passed");
             return true;
         }
 
+        uli::runtime::BlackBox::log("PM_SYNC_FATAL: Even Commando mode heartbeat failed");
         return false;
     }
 

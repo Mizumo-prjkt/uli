@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include "../../runtime/blackbox.hpp"
 
 namespace uli {
 namespace package_mgr {
@@ -30,8 +31,12 @@ bool DpkgAptManager::is_synced() {
 
 bool DpkgAptManager::sync_system() {
   std::cout << "[INFO] Synchronizing Debian package repositories (apt update)..." << std::endl;
+  uli::runtime::BlackBox::log("PM_SYNC: Synchronizing Debian repositories (apt-get update)");
   int ret = std::system("apt-get update >/dev/null 2>&1");
-  return ret == 0;
+  bool success = (ret == 0);
+  if (!success) uli::runtime::BlackBox::log("PM_SYNC_FAIL: apt-get update failed");
+  else uli::runtime::BlackBox::log("PM_SYNC_SUCCESS");
+  return success;
 }
 
 bool DpkgAptManager::configure_mirrors(

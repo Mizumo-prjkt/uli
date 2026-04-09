@@ -2,6 +2,7 @@
 #define ULI_APK_MGR_HPP
 
 #include "../../packagemanager_layer_interface.hpp"
+#include "../../runtime/blackbox.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -97,8 +98,12 @@ public:
 
     bool sync_system() override {
         std::cout << "[INFO] Synchronizing Alpine Linux package repositories (apk update)..." << std::endl;
+        uli::runtime::BlackBox::log("PM_SYNC: Synchronizing Alpine repositories (apk update)");
         int ret = std::system("apk update >/dev/null 2>&1");
-        return ret == 0;
+        bool success = (ret == 0);
+        if (!success) uli::runtime::BlackBox::log("PM_SYNC_FAIL: apk update failed");
+        else uli::runtime::BlackBox::log("PM_SYNC_SUCCESS");
+        return success;
     }
 
     bool configure_mirrors(const std::vector<std::string>& mirror_urls) override {

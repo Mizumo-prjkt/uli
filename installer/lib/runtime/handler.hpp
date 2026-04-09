@@ -440,7 +440,10 @@ public:
       if (!uli::partitioner::format::MkfsWrapper::format_partition(
               dev_part_path, p.fs_type, p.label)) {
         BlackBox::log("ERROR: Formatting failed for " + dev_part_path);
-        DialogBox::show_alert("Partitioning Error", "Failed to format " + dev_part_path + " as " + p.fs_type + ".\n\nCheck /tmp/uli_blackbox.log for details.");
+        DialogBox::show_alert("Partitioning Error", "Failed to format " + dev_part_path + " as " + p.fs_type + ".\n\n"
+                             "The device may be locked by another program (like cfdisk, fdisk, or an automounter).\n"
+                             "Please ensure no other partitioning tools are open and try again.\n\n"
+                             "Check /tmp/uli_blackbox.log for details.");
         return false;
       }
 
