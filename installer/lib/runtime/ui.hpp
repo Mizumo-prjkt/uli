@@ -379,10 +379,7 @@ public:
             return;
         }
 
-        // 2. Prepare boot loaders
-        uli::partitioner::partdisk::PartDisk::prepare_efi_layout(state.drive);
-        
-        // 3. Generate requested Locales 
+        // 2. Generate requested Locales 
         if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
             Warn::print_info("Executing Locale Generation: " + state.locale_language + "." + state.locale_encoding);
             uli::localegen::LocaleGenerator::generate_locales(state.drive, state.locale_language, state.locale_encoding);
