@@ -449,7 +449,7 @@ public:
         }
 
         // 6. Finalize System Configuration (Hostname, Users, Bootloader)
-        if (!uli::runtime::PostInstaller::finalize(state, "/mnt")) {
+        if (!uli::runtime::PostInstaller::finalize(state, os_distro, "/mnt")) {
             Warn::print_error("Post-installation configuration failed! System may not be bootable.");
             uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
             return;

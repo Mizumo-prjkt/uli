@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <iostream>
-#include "../chroot_hook/authorization.hpp"
+#include "../chroot_hook/chroot_hook.hpp"
 
 namespace uli {
 namespace localegen {
@@ -73,7 +73,7 @@ public:
         // 3. Compile the locale maps natively using chroot.
         // If `locale-gen` is absent (like Alpine), the command silently fails gracefully leaving our .conf fallback.
         std::string compile_cmd = "locale-gen";
-        uli::hook::ChrootHook::execute_in_chroot(chroot_mount, compile_cmd);
+        uli::hook::UniversalChroot::ScopedChroot(chroot_mount).execute(compile_cmd);
 
         return true;
     }

@@ -540,6 +540,14 @@ public:
       // headers if requested
       if (!state.kernel.empty())
         ensure_pkg(state.kernel);
+
+      // Bootloader requirements
+      if (state.bootloader == "grub") {
+        ensure_pkg("grub");
+        ensure_pkg("efibootmgr");
+      } else if (state.bootloader == "systemd-boot") {
+        ensure_pkg("efibootmgr"); // Useful for bootctl and efi management
+      }
     }
     return final_list;
   }

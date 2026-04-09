@@ -3,7 +3,7 @@
 
 #include "lib/arglinter.hpp"
 #include "lib/bootarg_check/bootargchecker.hpp"
-#include "lib/chroot_hook/authorization.hpp"
+#include "lib/chroot_hook/chroot_hook.hpp"
 #include "lib/config/yaml_linter.hpp"
 #include "lib/distribution_checks.hpp"
 #include "lib/distro_version.hpp"

@@ -65,38 +65,6 @@ public:
             std::filesystem::create_directories(path);
         } catch (...) {}
     }
-
-    // Prepares a chroot environment by bind-mounting essential virtual filesystems
-    static bool prepare_chroot(const std::string& target) {
-        std::vector<std::pair<std::string, std::string>> mounts = {
-            {"/dev", "/dev"},
-            {"/proc", "/proc"},
-            {"/sys", "/sys"},
-            {"/run", "/run"}
-        };
-
-        for (const auto& m : mounts) {
-            std::string dest = target + m.second;
-            mkdir_p(dest);
-            std::string cmd = "mount --bind " + m.first + " " + dest + " > /dev/null 2>&1";
-            if (std::system(cmd.c_str()) != 0) {
-                 uli::runtime::BlackBox::log("ERROR: Failed to bind mount " + m.first);
-                 return false;
-            }
-        }
-        return true;
-    }
-
-    // Cleans up chroot bind mounts
-    static void cleanup_chroot(const std::string& target) {
-        std::vector<std::string> mounts = {"/dev", "/proc", "/sys", "/run"};
-        // Unmount in reverse order to handle nesting if any
-        std::reverse(mounts.begin(), mounts.end());
-        for (const auto& m : mounts) {
-            std::string cmd = "umount -l " + target + m + " > /dev/null 2>&1";
-            std::system(cmd.c_str());
-        }
-    }
 };
 
 } // namespace format
