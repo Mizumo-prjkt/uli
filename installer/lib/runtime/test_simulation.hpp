@@ -14,6 +14,7 @@ struct TestSimulationConfig {
     std::string disk_type = "nvme"; // e.g. nvme, sata
     std::string hardware = "amd"; // e.g. amd, intel
     bool no_masking = false;
+    bool fetch_repos = false;
 };
 
 class TestSimulation {

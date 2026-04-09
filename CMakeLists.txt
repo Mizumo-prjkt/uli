@@ -43,13 +43,24 @@ add_library(apk_mgr installer/lib/package_mgr/apk/apk_mgr.cpp)
 target_include_directories(apk_mgr PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/installer/lib/package_mgr/apk)
 target_link_libraries(apk_mgr PUBLIC yaml-cpp)
 
+# === ULI Installer (Core Binary) ===
+pkg_check_modules(ARCHIVE libarchive)
+
 if(ULI_BUILD_INSTALLER)
     add_executable(uli_installer 
         installer/main.cpp 
         installer/lib/package_mgr/indexer.cpp
         installer/lib/runtime/contents/profiles/profiles.cpp
+        installer/lib/package_mgr/repofetch.cpp
     )
     target_include_directories(uli_installer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/installer ${DBUS_INCLUDE_DIRS})
+    
+    if(ARCHIVE_FOUND)
+        target_include_directories(uli_installer PRIVATE ${ARCHIVE_INCLUDE_DIRS})
+        target_link_libraries(uli_installer PRIVATE ${ARCHIVE_LIBRARIES})
+        target_compile_definitions(uli_installer PRIVATE ULI_HAS_LIBARCHIVE)
+    endif()
+
     target_link_libraries(uli_installer PRIVATE dpkg_apt alps_mgr apk_mgr yaml-cpp ${DBUS_LIBRARIES})
 endif()
 

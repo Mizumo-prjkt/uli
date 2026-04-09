@@ -8,9 +8,7 @@
 #include "lib/package_mgr/alps/alps_mgr.hpp"
 #include "lib/package_mgr/apk/apk_mgr.hpp"
 #include "lib/documentation/helpguide.hpp"
-#include "lib/documentation/helpguide.hpp"
-#include "lib/documentation/helpguide.hpp"
-#include "lib/documentation/helpguide.hpp"
+#include "lib/package_mgr/repofetch.hpp"
 #include "lib/package_mgr/builtin_dict.hpp"
 #include "lib/documentation/extrahelp.hpp"
 #include "lib/arglinter.hpp"
@@ -40,7 +38,7 @@ void handle_terminal_resize(int) {
 int main(int argc, char* argv[]) {
     uli::runtime::SuddenAbort::register_handlers();
 #ifdef ULI_DEBUG_MODE
-    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--test-memleak", "--debug-mode", "--no-masking", "--dist", "--disk", "--disk-type", "--hardware", "--lintcheck", "--disable-builtin-dict", "--unattended"};
+    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--test-memleak", "--debug-mode", "--no-masking", "--dist", "--disk", "--disk-type", "--hardware", "--lintcheck", "--disable-builtin-dict", "--unattended", "--fetch-repos"};
 #else
     std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--lintcheck", "--disable-builtin-dict", "--unattended"};
 #endif
@@ -143,6 +141,10 @@ int main(int argc, char* argv[]) {
             bootargs.force_small_disk = true;
         } else if (arg == "--unattended") {
             bootargs.unattended = true;
+#ifdef ULI_DEBUG_MODE
+        } else if (arg == "--fetch-repos") {
+            uli::runtime::TestSimulation::get_config().fetch_repos = true;
+#endif
         } else if (arg.length() >= 2 && arg.substr(0, 2) == "--") {
             bool known = false;
             for (const auto& f : valid_flags) {
@@ -200,13 +202,57 @@ int main(int argc, char* argv[]) {
     }
 
     int detected_debian_version = 0;
-    if (uli::runtime::TestSimulation::is_enabled() && !uli::runtime::TestSimulation::get_config().distribution.empty()) {
-        std::string dist = uli::runtime::TestSimulation::get_config().distribution;
-        if (dist == "debian" || dist == "ubuntu" || dist == "debbian") current_distro = uli::checks::DistroType::DEBIAN;
-        else if (dist == "arch") current_distro = uli::checks::DistroType::ARCH;
-        else if (dist == "alpine") current_distro = uli::checks::DistroType::ALPINE;
-        detected_debian_version = uli::runtime::TestSimulation::get_config().distro_version;
+#ifdef ULI_DEBUG_MODE
+    if (uli::runtime::TestSimulation::get_config().fetch_repos) {
+        std::string distro = uli::runtime::TestSimulation::get_config().distribution;
+        if (distro.empty()) {
+            if (current_distro == uli::checks::DistroType::ARCH) distro = "arch";
+            else if (current_distro == uli::checks::DistroType::ALPINE) distro = "alpine";
+            else distro = "debian";
+        }
+
+        std::cout << "[DEBUG] Starting repo fetch for distribution: " << distro << std::endl;
+        auto fetcher = uli::debug::FetcherFactory::create(distro);
+        if (fetcher) {
+            std::vector<std::string> urls;
+            if (distro == "arch") {
+                urls = {
+                    "https://mirror.osbeck.com/archlinux/core/os/x86_64/core.db",
+                    "https://mirror.osbeck.com/archlinux/extra/os/x86_64/extra.db"
+                };
+            } else if (distro == "alpine") {
+                urls = {
+                    "https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/APKINDEX.tar.gz",
+                    "https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz"
+                };
+            } else {
+                urls = {
+                    "http://ftp.debian.org/debian/dists/trixie/main/binary-amd64/Packages.xz",
+                    "http://security.debian.org/debian-security/dists/trixie-security/main/binary-amd64/Packages.xz",
+                    "http://ftp.debian.org/debian/dists/trixie-updates/main/binary-amd64/Packages.xz"
+                };
+            }
+
+            for (const auto& url : urls) {
+                if (fetcher->fetch_and_parse(url)) {
+                    std::cout << "[DEBUG] Fetch successful: " << url << std::endl;
+                } else {
+                    std::cerr << "[ERROR] Repository fetch failed: " << url << std::endl;
+                }
+            }
+            
+            auto pkgs = fetcher->get_packages();
+            std::cout << "[DEBUG] Total packages found across all repos: " << pkgs.size() << std::endl;
+            if (!pkgs.empty()) {
+                std::cout << "[DEBUG] Sample package: " << pkgs[0].name << " (" << pkgs[0].version << ")" << std::endl;
+            }
+        } else {
+            std::cerr << "[ERROR] No fetcher available for distro: " << distro << std::endl;
+        }
+        return 0; // Exit after debug fetch
     }
+#endif
+
     // Auto-detect Debian version from live system if not explicitly set
     if (detected_debian_version == 0 && current_distro == uli::checks::DistroType::DEBIAN) {
         detected_debian_version = uli::checks::DistroVersion::detect_major_version();
