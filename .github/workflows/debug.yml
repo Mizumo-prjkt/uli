@@ -24,8 +24,6 @@ jobs:
           pkg-config \
           qt6-base-dev \
           qt6-base-private-dev \
-          qt6-network-dev \
-          qt6-widgets-dev \
           libyaml-cpp-dev \
           libarchive-dev \
           libdbus-1-dev \
