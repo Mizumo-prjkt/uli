@@ -30,13 +30,17 @@ jobs:
       id: vars
       run: |
         VERSION=$(cat VERSION)
+        # Sanitize version for Arch (no hyphens allowed in pkgver)
+        ARCH_VERSION=$(echo $VERSION | sed 's/-/./g')
         TARGET="${{ github.event.inputs.target || 'uli-git' }}"
         if [[ "${{ github.ref_type }}" == "tag" ]]; then
           TARGET="uli"
           VERSION="${{ github.ref_name }}"
           VERSION=${VERSION#v}
+          ARCH_VERSION=$(echo $VERSION | sed 's/-/./g')
         fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "arch_version=${ARCH_VERSION}" >> $GITHUB_OUTPUT
         echo "target=${TARGET}" >> $GITHUB_OUTPUT
 
     - name: Generate PKGBUILD
@@ -44,7 +48,7 @@ jobs:
         cat <<EOF > PKGBUILD
         # Maintainer: ${{ secrets.AUTHOR_NAME }} <${{ secrets.AUTHOR_EMAIL }}>
         pkgname=${{ steps.vars.outputs.target }}
-        pkgver=${{ steps.vars.outputs.version }}
+        pkgver=${{ steps.vars.outputs.arch_version }}
         pkgrel=1
         pkgdesc="Universal Linux Installer co-developed with Antigravity"
         arch=('x86_64')

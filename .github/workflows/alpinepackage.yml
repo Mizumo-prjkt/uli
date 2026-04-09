@@ -41,9 +41,12 @@ jobs:
     - name: Create Alpine Package
       run: |
         VERSION=$(cat VERSION)
+        # Sanitize version for Alpine
+        APK_VERSION=$(echo $VERSION | sed 's/-/./g')
         if [[ "${{ github.ref_type }}" == "tag" ]]; then
           VERSION="${{ github.ref_name }}"
           VERSION=${VERSION#v}
+          APK_VERSION=$(echo $VERSION | sed 's/-/./g')
         fi
 
         # Setup abuild
@@ -58,7 +61,7 @@ jobs:
         cat <<EOF > build-apk/APKBUILD
         # Maintainer: ${{ secrets.AUTHOR_NAME }} <${{ secrets.AUTHOR_EMAIL }}>
         pkgname=uli
-        pkgver=${VERSION}
+        pkgver=${APK_VERSION}
         pkgrel=0
         pkgdesc="Universal Linux Installer"
         url="https://github.com/${{ github.repository }}"
