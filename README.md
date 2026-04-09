@@ -29,5 +29,5 @@ You need:
 - CMake
 - Make
 - Qt Libraries
-- Boost C++
+- Yaml C++
 
