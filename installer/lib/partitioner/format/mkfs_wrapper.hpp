@@ -23,9 +23,9 @@ public:
         }
 
         std::string cmd;
-        if (fs_type == "fat" || fs_type == "vfat") {
-            // mkfs.vfat does NOT support -F as 'force'; -F means FAT size
-            cmd = "mkfs.vfat ";
+        if (fs_type == "fat" || fs_type == "vfat" || fs_type == "fat32") {
+            // Use mkfs.fat -F 32 for maximum compatibility and reliability on UEFI systems
+            cmd = "mkfs.fat -F 32 ";
             if (!label.empty()) cmd += "-n \"" + label + "\" ";
         } else if (fs_type == "ext4") {
             cmd = "mkfs.ext4 -F ";
