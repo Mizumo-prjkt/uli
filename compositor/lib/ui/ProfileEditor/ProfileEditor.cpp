@@ -21,6 +21,7 @@
 #include <QTimer>
 #include <QDir>
 #include <QProgressDialog>
+#include <QCoreApplication>
 #include <algorithm>
 
 namespace uli {
