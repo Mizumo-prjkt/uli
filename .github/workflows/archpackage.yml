@@ -50,7 +50,7 @@ jobs:
         pkgname=${{ steps.vars.outputs.target }}
         pkgver=${{ steps.vars.outputs.arch_version }}
         pkgrel=1
-        pkgdesc="Universal Linux Installer co-developed with Antigravity"
+        pkgdesc="Universal Linux Installer"
         arch=('x86_64')
         url="https://github.com/${{ github.repository }}"
         license=('MIT')
