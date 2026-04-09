@@ -423,7 +423,8 @@ public:
       }
 
       uli::partitioner::sgdisk::SgdiskWrapper::refresh_part_table(state.drive);
-      std::system("sleep 1"); // Allow udev to settle
+      std::system("sync");
+      std::system("udevadm settle");
 
       // Build the specific partition device path (e.g. /dev/sda -> /dev/sda1,
       // /dev/nvme0n1 -> /dev/nvme0n1p1)
@@ -438,12 +439,13 @@ public:
       BlackBox::log("Formatting " + dev_part_path + " as " + p.fs_type);
       if (!uli::partitioner::format::MkfsWrapper::format_partition(
               dev_part_path, p.fs_type, p.label)) {
-        Warn::print_error("Failed to format filesystem on " + dev_part_path);
         BlackBox::log("ERROR: Formatting failed for " + dev_part_path);
+        DialogBox::show_alert("Partitioning Error", "Failed to format " + dev_part_path + " as " + p.fs_type + ".\n\nCheck /tmp/uli_blackbox.log for details.");
         return false;
       }
 
-      std::system("sleep 1"); // Wait for BLKID to detect new FS
+      std::system("sync");
+      std::system("udevadm settle");
       p.partuuid = uli::partitioner::identifiers::BlkidWrapper::get_partuuid(
           dev_part_path);
       p.is_deferred = false;
