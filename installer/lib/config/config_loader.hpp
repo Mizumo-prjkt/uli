@@ -71,7 +71,15 @@ public:
                     if (p_node["device"]) part.device_path = p_node["device"].as<std::string>();
                     if (p_node["fs_type"]) part.fs_type = p_node["fs_type"].as<std::string>();
                     if (p_node["label"]) part.label = p_node["label"].as<std::string>();
-                    if (p_node["mount_point"]) part.mount_point = p_node["mount_point"].as<std::string>();
+                    if (p_node["mount_point"]) {
+                        std::string mp = p_node["mount_point"].as<std::string>();
+                        // Normalize swap mount point from YAML: "[SWAP]" or similar -> empty
+                        if (part.fs_type == "swap" || mp == "[SWAP]" || mp == "swap") {
+                            part.mount_point = "";
+                        } else {
+                            part.mount_point = mp;
+                        }
+                    }
                     if (p_node["mount_options"]) part.mount_options = p_node["mount_options"].as<std::string>();
                     if (p_node["size_cmd"]) {
                         part.size_cmd = p_node["size_cmd"].as<std::string>();
@@ -81,6 +89,23 @@ public:
                     if (p_node["part_num"]) part.part_num = p_node["part_num"].as<int>();
                     state.partitions.push_back(part);
                 }
+
+                // Auto-derive state.drive from partition device entries if not explicitly set
+                if (state.drive.empty() && !state.partitions.empty()) {
+                    for (const auto& p : state.partitions) {
+                        if (!p.device_path.empty()) {
+                            state.drive = p.device_path;
+                            break;
+                        }
+                    }
+                }
+
+                // If we have deferred partitions from YAML, assume purge intent
+                bool has_deferred = false;
+                for (const auto& p : state.partitions) {
+                    if (p.is_deferred) { has_deferred = true; break; }
+                }
+                if (has_deferred) state.purge_disk_intent = true;
             }
 
             if (config["users"] && config["users"].IsSequence()) {
