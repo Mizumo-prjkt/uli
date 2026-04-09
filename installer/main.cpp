@@ -258,43 +258,67 @@ int main(int argc, char* argv[]) {
         std::cout << "[INFO] Standard Host Operating System Execution." << std::endl;
     }
     
-    std::string trans_yaml_path = "../tests/yaml/yaml_tests/translator/trans.yaml";
-    if (!bootargs.translation_yaml.empty()) {
-        trans_yaml_path = bootargs.translation_yaml;
-    }
-    std::cout << "Loading " << trans_yaml_path << "..." << std::endl;
-    
-    if (!pm->load_translation(trans_yaml_path)) {
-        if (bootargs.translation_yaml.empty()) {
-            trans_yaml_path = "tests/yaml/yaml_tests/translator/trans.yaml";
-            if (!pm->load_translation(trans_yaml_path)) {
-                // Fallback to builtin if enabled
-                if (!disable_builtin_dict) {
-                    std::cout << "[INFO] External trans.yaml not found. Using embedded multi-distro fallback." << std::endl;
-                    std::string builtin_str;
-                    if (current_distro == uli::checks::DistroType::ARCH) builtin_str = uli::package_mgr::BUILTIN_TRANS_ARCH;
-                    else if (current_distro == uli::checks::DistroType::ALPINE) builtin_str = uli::package_mgr::BUILTIN_TRANS_ALPINE;
-                    else builtin_str = uli::package_mgr::BUILTIN_TRANS_DEBIAN;
-                    
-                    if (!pm->load_translation_from_string(builtin_str)) {
-                        std::cerr << "[ERROR] Failed to load builtin translation dictionary." << std::endl;
-                        return 1;
-                    }
-                } else {
-                    std::cerr << "Failed to load trans.yaml and builtin dictionary is disabled." << std::endl;
-                    return 1;
-                }
-            }
+    // ──────────────────────────────────────────────────
+    // Translation Loading logic
+    // ──────────────────────────────────────────────────
+    bool loaded = false;
+    std::string final_dict_path = bootargs.translation_yaml;
+
+    // 1. Try explicit --dict path
+    if (!final_dict_path.empty()) {
+        if (pm->load_translation(final_dict_path)) {
+            loaded = true;
         } else {
-            std::cerr << "Failed to load trans.yaml" << std::endl;
+            std::cerr << "[ERROR] Could not load specified dictionary: " << final_dict_path << std::endl;
             return 1;
         }
     }
 
-    std::vector<std::string> abstract_pkgs = {"nginx", "mysql", "base_devel", "python", "custom_pkg", "aur-yay"};
+    // 2. Try standard search paths
+    if (!loaded) {
+        std::vector<std::string> search_paths = {
+            "trans.yaml",
+            "uli_profile.yaml", // Profiles sometimes contain their own maps
+            "tests/yaml/yaml_tests/translator/trans.yaml",
+            "../tests/yaml/yaml_tests/translator/trans.yaml"
+        };
+        for (const auto& path : search_paths) {
+            if (std::filesystem::exists(path) && pm->load_translation(path)) {
+                std::cout << "[INFO] Found external dictionary at: " << path << std::endl;
+                loaded = true;
+                break;
+            }
+        }
+    }
+
+    // 3. Fallback to builtins
+    if (!loaded && !disable_builtin_dict) {
+        std::cout << "[INFO] Using embedded multi-distro fallback for " << distro_name << std::endl;
+        std::string builtin_str;
+        if (current_distro == uli::checks::DistroType::ARCH) builtin_str = uli::package_mgr::BUILTIN_TRANS_ARCH;
+        else if (current_distro == uli::checks::DistroType::ALPINE) builtin_str = uli::package_mgr::BUILTIN_TRANS_ALPINE;
+        else builtin_str = uli::package_mgr::BUILTIN_TRANS_DEBIAN;
+        
+        if (pm->load_translation_from_string(builtin_str)) {
+            loaded = true;
+        }
+    }
+
+    if (!loaded) {
+        std::cerr << "[FATAL] No translation dictionary loaded. Installation cannot proceed." << std::endl;
+        return 1;
+    }
+
+    // Verification PKGs
+    std::vector<std::string> abstract_pkgs = {"base_system", "kernel", "base_devel", "python", "git", "web_server"};
     
+    // Check if we are in bootstrap mode (installing to /mnt)
+    if (uli::env::RuntimeEnv::is_live_environment()) {
+        setenv("ULI_BOOTSTRAP", "1", 1);
+    }
+
     std::string command = pm->build_install_command(abstract_pkgs);
-    std::cout << "\nGenerated Install Command:" << std::endl;
+    std::cout << "\nGenerated Install Command (" << (std::getenv("ULI_BOOTSTRAP") ? "Bootstrap" : "Host") << "):" << std::endl;
     std::cout << "  " << command << std::endl;
 
     if (!bootargs.unattended) {

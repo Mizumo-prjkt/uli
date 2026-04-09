@@ -1,4 +1,4 @@
-# Tracing for Universal Linux Installer
+# Tracing for Universal Linux Installer (Deprecated)
 
 A tool that checks for possible issues on the universal linux installer, written in Python, using `textual` to provide a Terminal UI (TUI).
 
