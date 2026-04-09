@@ -388,11 +388,42 @@ public:
         else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
         else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
         
+        // --- Synchronization Phase ---
+        bool sync_attempted = false;
+        if (state.force_sync) {
+            Warn::print_info("Forced synchronization requested...");
+            pm->sync_system();
+            sync_attempted = true;
+        } else if (!pm->is_synced()) {
+            Warn::print_info("Package manager requires synchronization (Keyrings/Metadata)...");
+            pm->sync_system();
+            sync_attempted = true;
+        }
+
         std::string command = pm->build_install_command(final_pkgs);
         std::cout << "\n[INFO] Executing Final Installation Command: " << command << std::endl;
 
-        // Perform actual installation
-        if (std::system(command.c_str()) != 0) {
+        // Perform actual installation with one-time retry if synchronization failed
+        int attempts = 0;
+        bool success = false;
+        while (attempts < 2) {
+            if (std::system(command.c_str()) == 0) {
+                success = true;
+                break;
+            }
+            
+            attempts++;
+            if (attempts < 2 && !sync_attempted) {
+                Warn::print_warning("Installation command failed. Attempting emergency synchronization repair...");
+                pm->sync_system();
+                sync_attempted = true;
+                Warn::print_info("Retrying installation...");
+            } else {
+                break; 
+            }
+        }
+
+        if (!success) {
             Warn::print_error("Installation command failed! Check logs for details.");
             uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
             return;

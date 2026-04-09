@@ -83,6 +83,24 @@ public:
     }
     bool is_available() const override { return true; }
 
+    bool is_synced() override {
+        // Check for presence of apk cache or metadata
+        std::string cmd = "ls /var/cache/apk/ | wc -l";
+        std::string output = exec_command(cmd.c_str());
+        try {
+            int count = std::stoi(output);
+            return count > 0;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    bool sync_system() override {
+        std::cout << "[INFO] Synchronizing Alpine Linux package repositories (apk update)..." << std::endl;
+        int ret = std::system("apk update >/dev/null 2>&1");
+        return ret == 0;
+    }
+
     bool configure_mirrors(const std::vector<std::string>& mirror_urls) override {
         if (mirror_urls.empty()) return true;
         if (mirror_urls.size() == 1 && (mirror_urls[0] == "Default" || mirror_urls[0] == "http://dl-cdn.alpinelinux.org/alpine/")) {

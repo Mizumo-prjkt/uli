@@ -109,6 +109,7 @@ struct MenuState {
   bool alpine_repo_testing = false;
   std::vector<std::string> optional_repos;
   std::vector<ManualMapping> manual_mappings;
+  bool force_sync = false;
 
   std::string get_optional_repos_str(const std::string& os_distro) const {
       int custom_c = optional_repos.size();

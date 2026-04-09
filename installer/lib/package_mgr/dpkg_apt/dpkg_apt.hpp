@@ -15,6 +15,12 @@ public:
     DpkgAptManager();
     ~DpkgAptManager() override = default;
 
+    // Check if the system appears to have initialized metadata/keyrings
+    bool is_synced() override;
+
+    // Perform actual synchronization (keyring init and/or repo update)
+    bool sync_system() override;
+
     // Optional method for package managers that support runtime mirror reconfiguration
     bool configure_mirrors(const std::vector<std::string>& mirror_urls) override;
 

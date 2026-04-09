@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
                                           "--disable-builtin-dict",
                                           "--unattended",
                                           "--fetch-repos",
+                                          "--force-sync",
                                           "--version",
                                           "-v"};
 #else
@@ -70,6 +71,7 @@ int main(int argc, char *argv[]) {
                                           "--lintcheck",
                                           "--disable-builtin-dict",
                                           "--unattended",
+                                          "--force-sync",
                                           "--version",
                                           "-v"};
 #endif
@@ -182,6 +184,8 @@ int main(int argc, char *argv[]) {
       bootargs.force_small_disk = true;
     } else if (arg == "--unattended") {
       bootargs.unattended = true;
+    } else if (arg == "--force-sync") {
+      bootargs.force_sync = true;
 #ifdef ULI_DEBUG_MODE
     } else if (arg == "--fetch-repos") {
       uli::runtime::TestSimulation::get_config().fetch_repos = true;
@@ -461,6 +465,7 @@ int main(int argc, char *argv[]) {
         return 1;
       }
     }
+    preloaded_state.force_sync |= bootargs.force_sync;
 
     uli::runtime::UIManager::start_ui(distro_name, detected_debian_version,
                                       preloaded_state);
@@ -481,6 +486,7 @@ int main(int argc, char *argv[]) {
         return 1;
       }
     }
+    preloaded_state.force_sync |= bootargs.force_sync;
 
     if (preloaded_state.drive.empty() || preloaded_state.drive == "None") {
       uli::runtime::Warn::print_error(

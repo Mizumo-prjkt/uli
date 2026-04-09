@@ -15,6 +15,25 @@ DpkgAptManager::DpkgAptManager() {
   config.clean_cmd = "apt-get autoremove -y && apt-get clean";
 }
 
+bool DpkgAptManager::is_synced() {
+  // Check if /var/lib/apt/lists/ contains metadata files (ignoring partial)
+  // On a completely clean system, the directory only contains lock and partial/
+  std::string cmd = "find /var/lib/apt/lists -maxdepth 1 -type f | grep -v 'lock' | wc -l";
+  std::string output = exec_command(cmd.c_str());
+  try {
+    int count = std::stoi(output);
+    return count > 0;
+  } catch (...) {
+    return false;
+  }
+}
+
+bool DpkgAptManager::sync_system() {
+  std::cout << "[INFO] Synchronizing Debian package repositories (apt update)..." << std::endl;
+  int ret = std::system("apt-get update >/dev/null 2>&1");
+  return ret == 0;
+}
+
 bool DpkgAptManager::configure_mirrors(
     const std::vector<std::string> &mirror_urls) {
   if (mirror_urls.empty())

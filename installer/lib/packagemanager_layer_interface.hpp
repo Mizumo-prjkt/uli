@@ -64,6 +64,12 @@ protected:
 public:
     virtual ~PackageManagerInterface() = default;
 
+    // Check if the system appears to have initialized metadata/keyrings
+    virtual bool is_synced() = 0;
+
+    // Perform actual synchronization (keyring init and/or repo update)
+    virtual bool sync_system() = 0;
+
     // Optional method for package managers that support runtime mirror reconfiguration
     virtual bool configure_mirrors(const std::vector<std::string>& mirror_urls) = 0;
 
