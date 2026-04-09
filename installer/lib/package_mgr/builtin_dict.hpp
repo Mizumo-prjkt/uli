@@ -32,7 +32,14 @@ package_map:
   web_server: "nginx"
   db_server: "mariadb-server"
   php: "php php-cli php-fpm php-mysql"
+  ntp_systemd: "systemd-timesyncd"
+  ntp_chrony: "chrony"
+  plymouth: "plymouth plymouth-themes"
   bootloader: "grub-efi-amd64 os-prober"
+  firefox: "firefox-esr"
+  x11: "xorg"
+  gnome_minimal: "gnome-core"
+  kde_minimal: "kde-plasma-desktop"
 )";
 
 // Onboard Instruction Set - Arch Linux Fallback
@@ -61,7 +68,14 @@ package_map:
   web_server: "nginx"
   db_server: "mariadb"
   php: "php php-fpm"
+  ntp_systemd: "systemd"
+  ntp_chrony: "chrony"
+  plymouth: "plymouth"
   bootloader: "grub efibootmgr os-prober"
+  firefox: "firefox"
+  x11: "xorg-server xorg-xinit"
+  gnome_minimal: "gnome-shell"
+  kde_minimal: "plasma-desktop"
 )";
 
 // Onboard Instruction Set - Alpine Linux Fallback
@@ -90,7 +104,14 @@ package_map:
   web_server: "nginx"
   db_server: "mariadb mariadb-client"
   php: "php83 php83-common php83-fpm"
+  ntp_systemd: "chrony" # Alpine usually defaults to chrony or openntpd
+  ntp_chrony: "chrony"
+  plymouth: "plymouth"
   bootloader: "grub grub-efi efibootmgr"
+  firefox: "firefox"
+  x11: "xorg-server"
+  gnome_minimal: "gnome-desktop"
+  kde_minimal: "plasma-desktop"
 )";
 
 } // namespace package_mgr

@@ -40,9 +40,9 @@ void handle_terminal_resize(int) {
 int main(int argc, char* argv[]) {
     uli::runtime::SuddenAbort::register_handlers();
 #ifdef ULI_DEBUG_MODE
-    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--test-memleak", "--debug-mode", "--no-masking", "--dist", "--disk", "--disk-type", "--hardware", "--lintcheck", "--disable-builtin-dict"};
+    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--test-memleak", "--debug-mode", "--no-masking", "--dist", "--disk", "--disk-type", "--hardware", "--lintcheck", "--disable-builtin-dict", "--unattended"};
 #else
-    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--lintcheck", "--disable-builtin-dict"};
+    std::vector<std::string> valid_flags = {"--help", "-h", "--extra-help", "--profile", "--dict", "--force-small-disk", "--lintcheck", "--disable-builtin-dict", "--unattended"};
 #endif
 
     uli::checks::DistroType current_distro = uli::checks::detect_distribution();
@@ -141,6 +141,8 @@ int main(int argc, char* argv[]) {
             disable_builtin_dict = true;
         } else if (arg == "--force-small-disk") {
             bootargs.force_small_disk = true;
+        } else if (arg == "--unattended") {
+            bootargs.unattended = true;
         } else if (arg.length() >= 2 && arg.substr(0, 2) == "--") {
             bool known = false;
             for (const auto& f : valid_flags) {
@@ -274,19 +276,33 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // 2. Try standard search paths
+    // 2. Try standard search paths (but only if they match our distro)
     if (!loaded) {
         std::vector<std::string> search_paths = {
             "trans.yaml",
-            "uli_profile.yaml", // Profiles sometimes contain their own maps
+            "uli_profile.yaml",
             "tests/yaml/yaml_tests/translator/trans.yaml",
             "../tests/yaml/yaml_tests/translator/trans.yaml"
         };
         for (const auto& path : search_paths) {
-            if (std::filesystem::exists(path) && pm->load_translation(path)) {
-                std::cout << "[INFO] Found external dictionary at: " << path << std::endl;
-                loaded = true;
-                break;
+            if (std::filesystem::exists(path)) {
+                // Peek at the file to check distro_id
+                try {
+                    YAML::Node node = YAML::LoadFile(path);
+                    std::string yaml_distro = "";
+                    if (node["distro_id"]) yaml_distro = node["distro_id"].as<std::string>();
+                    
+                    bool match = false;
+                    if (current_distro == uli::checks::DistroType::ARCH && yaml_distro == "arch") match = true;
+                    else if (current_distro == uli::checks::DistroType::DEBIAN && yaml_distro == "debian") match = true;
+                    else if (current_distro == uli::checks::DistroType::ALPINE && yaml_distro == "alpine") match = true;
+
+                    if (match && pm->load_translation(path)) {
+                        std::cout << "[INFO] Found matching external dictionary at: " << path << std::endl;
+                        loaded = true;
+                        break;
+                    }
+                } catch (...) {}
             }
         }
     }

@@ -29,7 +29,8 @@ inline void print_help_guide() {
               << "                (Maps abstract package names to distro-native equivalents.\n"
               << "                 NOT for language translations. See --extra-help for details.)\n"
               << "  --force-small-disk  Forces installation to proceed on disks under 14 GiB.\n"
-              << "                (\033[1;31mNOT RECOMMENDED\033[0m: Automator scaling will be unpredictable)\n\n"
+              << "                (\033[1;31mNOT RECOMMENDED\033[0m: Automator scaling will be unpredictable)\n"
+              << "  --unattended  Enables non-interactive, automatic processing of the configuration.\n\n"
 #ifdef ULI_DEBUG_MODE
               << "Debug Options:\n"
               << "  --debug-mode  Enables test simulation mode.\n"
