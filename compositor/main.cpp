@@ -5,6 +5,15 @@
 #include "lib/ui/Main_Menu/Main_Menu.hpp"
 
 int main(int argc, char *argv[]) {
+    // Check for version flag before QApplication to avoid headless crash
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--version" || arg == "-v") {
+            std::cout << "ULI Compositor version " << uli::PROJECT_VERSION << " (" << uli::BUILD_TYPE << ")" << std::endl;
+            return 0;
+        }
+    }
+
     QApplication app(argc, argv);
     
     app.setApplicationName("ULI Compositor");
