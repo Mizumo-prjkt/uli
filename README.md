@@ -1,9 +1,10 @@
 # Universal Linux Installer
 
-```text
-Important note:
-This software was co-made with an AI agent, more below
-```
+> [!NOTE]
+> **AI-Assisted Development**
+> This project is co-developed with an AI agent (**Antigravity**). The architecture and high-level logic are directed by humans, while the complex implementation details, multidistro logic, and native package manager integrations are iteratively refined through human-AI pair programming.
+> Any Decisions made by the AI agent are subject to be analyzed and be approved by a human before being implemented.
+> Models used: Gemini 3 Pro High, 3 Flash, and Claude Opus
 
 A tool to allow unified installation of Linux distributions.
 
