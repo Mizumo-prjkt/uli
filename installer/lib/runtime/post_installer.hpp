@@ -9,6 +9,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <filesystem>
 
 namespace uli {
 namespace runtime {
@@ -31,9 +33,16 @@ public:
         if (success && !setup_users(state, target_root, os_distro, chroot)) success = false;
         if (success && !setup_ntp(state, target_root, os_distro, chroot)) success = false;
         if (success && !setup_bootloader(state, target_root, os_distro, chroot)) success = false;
+        if (success && !setup_services(state, target_root, os_distro, chroot)) success = false;
 
-        if (success) BlackBox::log("EXIT PostInstaller::finalize success");
-        else BlackBox::log("EXIT PostInstaller::finalize with ERRORS");
+        if (success) {
+            BlackBox::log("EXIT PostInstaller::finalize success");
+            if (!state.additional_packages.empty()) {
+                Warn::print_info("NOTE: Some manually added packages may require manual service enablement (e.g., systemctl enable <service>).");
+            }
+        } else {
+            BlackBox::log("EXIT PostInstaller::finalize with ERRORS");
+        }
         
         return success;
     }
@@ -147,6 +156,60 @@ private:
             }
             chroot.execute("systemctl enable systemd-timesyncd");
         }
+        return true;
+    }
+
+    static bool setup_services(const MenuState& state, const std::string& root, const std::string& os_distro, uli::hook::UniversalChroot::ScopedChroot& chroot) {
+        BlackBox::log("POST-INSTALL: Configuring system services");
+        bool is_openrc = (os_distro == "Alpine Linux");
+
+        auto enable_service = [&](const std::string& name, const std::string& check_bin = "") {
+            if (!check_bin.empty()) {
+                std::string bin_path = root + check_bin;
+                if (!std::filesystem::exists(bin_path)) return;
+            }
+
+            if (is_openrc) {
+                chroot.execute("rc-update add " + name + " default");
+            } else {
+                chroot.execute("systemctl enable " + name);
+            }
+            BlackBox::log("SERVICE_ENABLED: " + name);
+        };
+
+        // 1. Networking
+        if (state.network_backend == "NetworkManager") {
+            enable_service(is_openrc ? "networkmanager" : "NetworkManager", "/usr/bin/NetworkManager");
+        }
+
+        // 2. Bluetooth
+        bool has_bluez = false;
+        for (const auto& pkg : state.additional_packages) {
+            if (pkg.find("bluez") != std::string::npos) has_bluez = true;
+        }
+        if (has_bluez) {
+            enable_service(is_openrc ? "bluetooth" : "bluetooth.service", is_openrc ? "/usr/bin/bluetoothd" : "/usr/lib/bluetooth/bluetoothd");
+        }
+
+        // 3. Display Managers
+        std::vector<std::pair<std::string, std::string>> dms = {
+            {"sddm", "/usr/bin/sddm"},
+            {"gdm", "/usr/bin/gdm"},
+            {"lightdm", "/usr/bin/lightdm"}
+        };
+        for (const auto& dm : dms) {
+            enable_service(is_openrc ? dm.first : dm.first + ".service", dm.second);
+        }
+
+        // 4. SSH
+        bool needs_ssh = (state.profile == "Server" || state.profile == "server");
+        for (const auto& pkg : state.additional_packages) {
+            if (pkg.find("openssh") != std::string::npos) needs_ssh = true;
+        }
+        if (needs_ssh) {
+            enable_service(is_openrc ? "sshd" : "sshd.service", is_openrc ? "/usr/sbin/sshd" : "/usr/bin/sshd");
+        }
+
         return true;
     }
 
