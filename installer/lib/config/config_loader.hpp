@@ -71,22 +71,24 @@ public:
                     if (p_node["device"]) part.device_path = p_node["device"].as<std::string>();
                     if (p_node["fs_type"]) part.fs_type = p_node["fs_type"].as<std::string>();
                     if (p_node["label"]) part.label = p_node["label"].as<std::string>();
+                    if (p_node["mount_options"]) part.mount_options = p_node["mount_options"].as<std::string>();
+                    if (p_node["size_cmd"]) {
+                        part.size_cmd = p_node["size_cmd"].as<std::string>();
+                        part.is_deferred = true; 
+                    }
+                    if (p_node["type_code"]) part.type_code = p_node["type_code"].as<std::string>();
+                    if (p_node["part_num"]) part.part_num = p_node["part_num"].as<int>();
+
+                    // Normalize mount point late to ensure fs_type is already known
                     if (p_node["mount_point"]) {
                         std::string mp = p_node["mount_point"].as<std::string>();
-                        // Normalize swap mount point from YAML: "[SWAP]" or similar -> empty
-                        if (part.fs_type == "swap" || mp == "[SWAP]" || mp == "swap") {
+                        if (part.fs_type == "swap" || mp == "[SWAP]" || mp == "swap" || mp == "none") {
                             part.mount_point = "";
                         } else {
                             part.mount_point = mp;
                         }
                     }
-                    if (p_node["mount_options"]) part.mount_options = p_node["mount_options"].as<std::string>();
-                    if (p_node["size_cmd"]) {
-                        part.size_cmd = p_node["size_cmd"].as<std::string>();
-                        part.is_deferred = true; // YAML-defined sizes imply creation/format
-                    }
-                    if (p_node["type_code"]) part.type_code = p_node["type_code"].as<std::string>();
-                    if (p_node["part_num"]) part.part_num = p_node["part_num"].as<int>();
+                    
                     state.partitions.push_back(part);
                 }
 

@@ -15,10 +15,14 @@ namespace runtime {
 
 class PackageIndex {
 private:
+    struct CFileDeleter {
+        void operator()(FILE* f) const { if (f) pclose(f); }
+    };
+
     static std::string exec_command(const char* cmd) {
-        std::array<char, 128> buffer;
+        std::array<char, 256> buffer;
         std::string result;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+        std::unique_ptr<FILE, CFileDeleter> pipe(popen(cmd, "r"));
         if (!pipe) return "";
         while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             result += buffer.data();

@@ -34,12 +34,16 @@ struct PartitionInfo {
 
 class DiskCheck {
 public:
+    struct CFileDeleter {
+        void operator()(FILE* f) const { if (f) pclose(f); }
+    };
+
     static std::string exec_command(const char* cmd) {
-        std::array<char, 128> buffer;
+        std::array<char, 256> buffer;
         std::string result;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+        std::unique_ptr<FILE, CFileDeleter> pipe(popen(cmd, "r"));
         if (!pipe) {
-            throw std::runtime_error("popen() failed!");
+            return "";
         }
         while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             result += buffer.data();

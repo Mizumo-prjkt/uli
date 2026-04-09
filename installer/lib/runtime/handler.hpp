@@ -322,20 +322,28 @@ public:
 
     // Process all pending deferred partition configurations globally before install unpacks
     static bool execute_deferred_partitions(MenuState& state) {
-        if (state.partitions.empty() || state.drive.empty()) return true;
+        if (state.partitions.empty()) return true;
+        
+        if (state.drive.empty() || state.drive == "None") {
+            Warn::print_error("Cannot execute partitions: No target drive selected!");
+            return false;
+        }
 
         bool has_deferred = false;
         for (const auto& p : state.partitions) if (p.is_deferred) has_deferred = true;
         if (!has_deferred) return true;
 
-        Warn::print_info("Executing deferred partition layouts onto " + state.drive + "...");
-        std::cout << "[mkfs] Initializing new GUID Partition Table...\n";
-        uli::partitioner::sgdisk::SgdiskWrapper::create_gpt_table(state.drive);
+        Warn::print_info("Executing deferred partition layouts onto \"" + state.drive + "\"...");
+        std::cout << "[partitioner] Initializing new GUID Partition Table (GPT)...\n";
+        if (!uli::partitioner::sgdisk::SgdiskWrapper::create_gpt_table(state.drive)) {
+            Warn::print_error("Failed to initialize GPT on " + state.drive);
+            return false;
+        }
 
         for (auto& p : state.partitions) {
             if (!p.is_deferred) continue;
             
-            std::cout << "[mkfs] Slicing partition " << p.part_num << " (" << p.size_cmd << ")...\n";
+            std::cout << "[partitioner] Slicing partition " << p.part_num << " (" << p.size_cmd << ")...\n";
             bool success = uli::partitioner::sgdisk::SgdiskWrapper::create_partition(state.drive, p.part_num, "0", p.size_cmd, p.type_code);
             if (!success) {
                 Warn::print_error("Failed to construct partition " + std::to_string(p.part_num));
@@ -343,11 +351,14 @@ public:
             }
             
             uli::partitioner::sgdisk::SgdiskWrapper::refresh_part_table(state.drive);
-            std::system("sleep 1"); // udev map refresh
+            std::system("sleep 1"); // Allow udev to settle
             
+            // Build the specific partition device path (e.g. /dev/sda -> /dev/sda1, /dev/nvme0n1 -> /dev/nvme0n1p1)
             std::string dev_part_path = state.drive;
-            if (state.drive.back() >= '0' && state.drive.back() <= '9') dev_part_path += "p" + std::to_string(p.part_num);
-            else dev_part_path += std::to_string(p.part_num);
+            if (!dev_part_path.empty() && std::isdigit(dev_part_path.back())) {
+                dev_part_path += "p";
+            }
+            dev_part_path += std::to_string(p.part_num);
             
             p.device_path = dev_part_path;
             
@@ -356,10 +367,10 @@ public:
                 return false;
             }
 
-            std::system("sleep 1"); // Generate BLKID targets
+            std::system("sleep 1"); // Wait for BLKID to detect new FS
             p.partuuid = uli::partitioner::identifiers::BlkidWrapper::get_partuuid(dev_part_path);
             p.is_deferred = false;
-            std::cout << "[mkfs] " << dev_part_path << " cleanly formatted. PARTUUID=" << p.partuuid << "\n";
+            std::cout << "[partitioner] SUCCESS: " << dev_part_path << " ready. PARTUUID=" << p.partuuid << "\n";
         }
         return true;
     }

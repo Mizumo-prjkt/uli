@@ -48,10 +48,14 @@ protected:
         }
     }
 
+    struct CFileDeleter {
+        void operator()(FILE* f) const { if (f) pclose(f); }
+    };
+
     std::string exec_command(const char* cmd) const {
-        std::array<char, 128> buffer;
+        std::array<char, 256> buffer;
         std::string result;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+        std::unique_ptr<FILE, CFileDeleter> pipe(popen(cmd, "r"));
         if (!pipe) {
             return "_ULI_PM_ERROR_";
         }
