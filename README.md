@@ -2,6 +2,7 @@
 
 > [!NOTE]
 > **AI-Assisted Development**
+> <br />
 > This project is co-developed with an AI agent (**Antigravity**). The architecture and high-level logic are directed by humans, while the complex implementation details, multidistro logic, and native package manager integrations are iteratively refined through human-AI pair programming.
 > Any Decisions made by the AI agent are subject to be analyzed and be approved by a human before being implemented.
 > Models used: Gemini 3 Pro High, 3 Flash, and Claude Opus
