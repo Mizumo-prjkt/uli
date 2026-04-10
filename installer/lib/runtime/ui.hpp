@@ -628,10 +628,20 @@ public:
                   << command << std::endl;
         BlackBox::log("EXEC_INSTALL: " + command);
 
-        // Perform supervised installation
-        SupervisionResult s_res = ProcessSupervisor::execute(command);
+        // Perform installation with execution engine selection
+        SupervisionResult s_res;
+        if (os_distro == "Debian") {
+          // Use RAW execution for Debian to avoid PTY deadlocks in the supervisor.
+          // This gives 100% control to the guest process but disables Ctrl+O/U.
+          Warn::print_info("Executing RAW bootstrap for Debian...");
+          int res = std::system(command.c_str());
+          s_res = (res == 0) ? SupervisionResult::SUCCESS : SupervisionResult::FAILURE;
+        } else {
+          s_res = ProcessSupervisor::execute(command);
+        }
 
         if (s_res == SupervisionResult::RESTART_SOFT) {
+
           Warn::print_warning("INTERRUPT: Soft Restart Requested. Redoing "
                               "package installation...");
           retry_packages = true;

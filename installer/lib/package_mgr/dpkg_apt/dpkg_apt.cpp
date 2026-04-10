@@ -210,15 +210,12 @@ std::string DpkgAptManager::build_install_command(
     std::string env = "DEBIAN_FRONTEND=noninteractive LANG=" + full_locale +
                       " DBUS_SESSION_BUS_ADDRESS=/dev/null";
 
-    // Use standard chroot wrapped in 'script' to provide a private PTY for the
-    // guest. This prevents post-installation scripts from corrupting or
-    // freezing the supervisor terminal.
-    cmd << "script -q -c \"chroot /mnt /bin/bash -c \\\"" << env
-        << " locale-gen " << full_locale << " && " << env << " " << pm_bin
-        << " update && " << env << " " << pm_bin
-        << " install -y zstd linux-image-amd64 linux-headers-amd64 "
-           "initramfs-tools network-manager && "
+    // Use standard chroot for maximum reliability as requested (Removing PTY layers).
+    cmd << "chroot /mnt /bin/bash -c \"" << env << " locale-gen " << full_locale << " && "
+        << env << " " << pm_bin << " update && "
+        << env << " " << pm_bin << " install -y zstd linux-image-amd64 linux-headers-amd64 initramfs-tools network-manager && "
         << env << " " << pm_bin << " install -y";
+
 
     uli::runtime::BlackBox::log(
         "DPKG_APT: Manual mount bootstrap command chain initialized");
@@ -232,11 +229,11 @@ std::string DpkgAptManager::build_install_command(
   }
 
   if (is_bootstrap) {
-    // Phase 7: Cleanup
-    // Close the nested quotes: bash -c \", then script \"
-    cmd << "\\\"\" /dev/null && rm -f /mnt/usr/sbin/policy-rc.d && "
+    // Phase 7: Cleanup (Using lazy unmounts since we manually bind-mounted)
+    cmd << "\" && rm -f /mnt/usr/sbin/policy-rc.d && "
         << "umount -l /mnt/dev/pts /mnt/dev /mnt/proc /mnt/sys /mnt/run";
   }
+
 
   return cmd.str();
 }
