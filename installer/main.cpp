@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
                                           "--disable-builtin-dict",
                                           "--unattended",
                                           "--fetch-repos",
+                                          "--boot-repair",
                                           "--force-sync",
                                           "--load-last-error",
                                           "--version",
@@ -72,6 +73,7 @@ int main(int argc, char *argv[]) {
                                           "--extra-help",
                                           "--profile",
                                           "--dict",
+                                          "--boot-repair",
                                           "--force-small-disk",
                                           "--load-last-error",
                                           "--lintcheck",
@@ -183,6 +185,9 @@ int main(int argc, char *argv[]) {
     } else if (arg == "--hardware" && i + 1 < argc) {
       uli::runtime::TestSimulation::get_config().hardware = argv[++i];
 #endif
+    } else if (arg == "--boot-repair" && i + 1 < argc) {
+      cli_profile_path = argv[++i];
+      bootargs.is_repair_mode = true;
     } else if (arg == "--profile" && i + 1 < argc) {
       cli_profile_path = argv[++i];
     } else if (arg == "--dict" && i + 1 < argc) {
@@ -482,8 +487,12 @@ int main(int argc, char *argv[]) {
     }
     preloaded_state.force_sync |= bootargs.force_sync;
 
-    uli::runtime::UIManager::start_ui(distro_name, detected_debian_version,
-                                      preloaded_state, load_last_error);
+    if (bootargs.is_repair_mode && !cli_profile_path.empty()) {
+      uli::runtime::UIManager::start_repair_mode(distro_name, cli_profile_path);
+    } else {
+      uli::runtime::UIManager::start_ui(distro_name, detected_debian_version,
+                                        preloaded_state, load_last_error);
+    }
 
   } else {
     std::cout << "\n[INFO] Unattended Mode sequence initiated. Processing "

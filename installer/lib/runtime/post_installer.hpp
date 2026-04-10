@@ -230,14 +230,21 @@ private:
         return true;
     }
 
+public:
     static bool setup_bootloader(const MenuState& state, const std::string& root, const std::string& os_distro, uli::hook::UniversalChroot::ScopedChroot& chroot) {
+
         BlackBox::log("POST-INSTALL: Installing bootloader " + state.bootloader);
         
         if (os_distro == "Alpine Linux") {
             if (state.bootloader == "grub") {
                 chroot.execute("apk add grub grub-efi efibootmgr");
-                chroot.execute("grub-install --target=" + state.bootloader_target + " --bootloader-id='" + state.bootloader_id + "' --efi-directory=" + state.efi_directory);
+                std::string grub_cmd = "grub-install --target=" + state.bootloader_target + 
+                                       " --bootloader-id='" + state.bootloader_id + "'" +
+                                       " --efi-directory=" + state.efi_directory + 
+                                       " --recheck --removable";
+                chroot.execute(grub_cmd);
                 chroot.execute("grub-mkconfig -o /boot/grub/grub.cfg");
+
             } else if (state.bootloader == "syslinux") {
                 chroot.execute("apk add syslinux");
                 // Note: syslinux setup is complex on Alpine, but we initiate it here
@@ -271,9 +278,14 @@ private:
             if (state.bootloader == "systemd-boot") {
                 chroot.execute("bootctl install");
             } else if (state.bootloader == "grub") {
-                chroot.execute("grub-install --target=" + state.bootloader_target + " --bootloader-id='" + state.bootloader_id + "' --efi-directory=" + state.efi_directory);
+                std::string grub_cmd = "grub-install --target=" + state.bootloader_target + 
+                                       " --bootloader-id='" + state.bootloader_id + "'" +
+                                       " --efi-directory=" + state.efi_directory + 
+                                       " --recheck --removable";
+                chroot.execute(grub_cmd);
                 chroot.execute("grub-mkconfig -o /boot/grub/grub.cfg");
             }
+
         }
 
         return true;

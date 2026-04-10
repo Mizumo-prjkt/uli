@@ -687,7 +687,48 @@ public:
       BlackBox::log("WARNING: No vfat/EFI partition found for Debian target.");
     }
   }
+
+
+  // Verification step for Repair Mode
+  static bool verify_partitions_exist(const MenuState &state) {
+    BlackBox::log("Reparing PRE-FLIGHT: Verifying block devices and sizes...");
+    for (const auto &p : state.partitions) {
+        if (p.device_path.empty()) continue;
+        
+        // 1. Exact existence check
+        std::string cmd = "lsblk " + p.device_path + " 2>/dev/null";
+        if (std::system(cmd.c_str()) != 0) {
+            Warn::print_error("Repair logic failed: Block device " + p.device_path + " not found!");
+            return false;
+        }
+
+        // 2. Size consistency check (Optional but recommended for hotpatching)
+        if (!p.size_cmd.empty() && std::isdigit(p.size_cmd[0])) {
+            try {
+                long long yaml_bytes = std::stoll(p.size_cmd);
+                long long actual_bytes = uli::partitioner::DiskCheck::get_disk_size_bytes(p.device_path);
+                
+                // Allow a 2MB tolerance for alignment differences
+                long long diff = std::abs(actual_bytes - yaml_bytes);
+                if (diff > 2 * 1024 * 1024) {
+                    Warn::print_warning("Size Mismatch for " + p.device_path + ": YAML=" + 
+                                       std::to_string(yaml_bytes) + " vs HW=" + std::to_string(actual_bytes));
+                    
+                    std::vector<std::string> choices = {"Continue anyway", "Abort Repair"};
+                    int sel = DialogBox::ask_selection("Size Inconsistency", 
+                                "The size of " + p.device_path + " does not match the YAML exactly. Continue?", choices);
+                    if (sel != 0) return false;
+                }
+            } catch (...) {
+                // Ignore parsing errors for complex size_cmd (+512M)
+            }
+        }
+    }
+    return true;
+  }
 };
+
+
 
 
 } // namespace runtime

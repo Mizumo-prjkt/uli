@@ -67,6 +67,13 @@ public:
       }
     }
 
+    // Set defaults for specific distros
+    if (os_distro == "Debian") {
+        state.bootloader = "grub";
+        state.efi_directory = "/boot/efi";
+    }
+
+
 
     if (NetworkMetrics::run_diagnostics()) {
       state.network_configuration = "Connected";
@@ -656,7 +663,91 @@ public:
 
     }
   }
+
+  // Orchestrates the hotpatching of the bootloader in an existing system
+
+  static bool execute_repair_workflow(MenuState &state, const std::string &os_distro) {
+    Warn::print_info("Starting Bootloader Repair Mode (Hotpatch)...");
+    BlackBox::log("ENTER execute_repair_workflow for " + os_distro);
+
+    // 1. Safety: Protect existing partitions from any accidental formatting
+    for (auto &p : state.partitions) p.is_deferred = false;
+
+    // 2. Pre-flight checks: verify block devices and sizes
+    if (!uli::runtime::UIHandler::verify_partitions_exist(state)) return false;
+
+    // 3. Normalize paths according to distro standards (/boot/efi for Debian)
+    uli::runtime::UIHandler::normalize_efi_mounts(state, os_distro);
+
+    // 4. Mount target filesystems to /mnt
+    std::cout << "[repair] Mounting filesystems from YAML...\n";
+    if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
+        Warn::print_error("Failed to mount existing filesystems for repair.");
+        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+        return false;
+    }
+
+    if (!uli::runtime::UIHandler::mount_api_systems("/mnt")) {
+        Warn::print_error("Failed to mount API virtual filesystems (proc/sys/dev).");
+        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+        return false;
+    }
+
+    // 5. Enter Chroot & execute bootloader setup
+    try {
+        uli::hook::UniversalChroot::ScopedChroot chroot("/mnt");
+        
+        std::cout << "[repair] Syncing package repositories...\n";
+        if (os_distro == "Debian") {
+            chroot.execute("apt-get update");
+        } else if (os_distro == "Arch Linux") {
+            chroot.execute("pacman -Sy");
+        }
+
+        std::cout << "[repair] Re-installing bootloader with hardened flags...\n";
+        if (!uli::runtime::PostInstaller::setup_bootloader(state, "/mnt", os_distro, chroot)) {
+            Warn::print_error("Bootloader repair failed internally. See logs.");
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            return false;
+        }
+    } catch (const std::exception &e) {
+        Warn::print_error("Chroot fatal error: " + std::string(e.what()));
+        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+        return false;
+    }
+
+    // 6. Final cleanup (umount)
+    uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+    Warn::print_info("SUCCESS: Bootloader successfully repaired and hotpatched!");
+    return true;
+  }
+
+  // Specialized entry point for bootloader hotpatching via --boot-repair
+  static void start_repair_mode(const std::string &os_distro, const std::string &yaml_path) {
+    MenuState state;
+    Warn::print_info("Loading repair profile: " + yaml_path);
+    if (!uli::runtime::config::ConfigLoader::load_yaml_to_menu_state(yaml_path, state)) {
+        Warn::print_error("Failed to parse repair profile. Aborting.");
+        return;
+    }
+
+    std::string banner = _tr("This will attempt to repair the bootloader on your existing system.\n") +
+                         _tr("Drive: ") + state.drive + "\n" +
+                         _tr("Distribution: ") + os_distro + "\n\n" +
+                         _tr("CAUTION: Ensure your partition mapping in ") + yaml_path + _tr(" is accurate.");
+
+    if (DialogBox::ask_yes_no(_tr("Confirm Bootloader Repair"), banner)) {
+        DesignUI::clear_screen();
+        if (execute_repair_workflow(state, os_distro)) {
+            DialogBox::show_alert(_tr("Repair Successful"), _tr("Bootloader has been hotpatched. You may now reboot."));
+        } else {
+            DialogBox::show_alert(_tr("Repair Failed"), _tr("The repair process encountered an error. Check logs."));
+        }
+    }
+  }
 };
+
+
 
 } // namespace runtime
 } // namespace uli

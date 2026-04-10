@@ -45,7 +45,9 @@ inline void print_help_guide() {
       << "  --unattended  Enables non-interactive, automatic processing of the "
          "configuration.\n"
       << "  --load-last-error Resumes the installation from the last saved "
-         "checkpoint in /tmp.\n\n"
+         "checkpoint in /tmp.\n"
+      << "  --boot-repair Specify the path to a profile YAML to repair an existing bootloader.\n"
+      << "                (Standardizes /boot/efi and applies hardened GRUB fallback.)\n\n"
 #ifdef ULI_DEBUG_MODE
       << "Debug Options:\n"
       << "  --debug-mode  Enables test simulation mode.\n"

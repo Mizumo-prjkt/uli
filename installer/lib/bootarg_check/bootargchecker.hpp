@@ -17,6 +17,7 @@ struct BootArgs {
     std::string distro_override = "";
     bool force_small_disk = false;
     bool force_sync = false;
+    bool is_repair_mode = false;
 };
 
 inline BootArgs parse_boot_args() {
@@ -37,8 +38,10 @@ inline BootArgs parse_boot_args() {
             else if (token.find("uli.distro_override=") == 0) args.distro_override = token.substr(20);
             else if (token == "uli.force_small_disk=1") args.force_small_disk = true;
             else if (token == "uli.force_sync=1") args.force_sync = true;
+            else if (token == "uli.boot_repair=1") args.is_repair_mode = true;
         }
     }
+
 
     if (args.is_uli_in_bootdir) {
         if (!args.config_file.empty() && args.config_file.find("/boot") != 0) {
