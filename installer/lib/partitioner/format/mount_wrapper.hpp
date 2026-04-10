@@ -14,12 +14,14 @@ namespace format {
 
 class MountWrapper {
 public:
-    // Mounts a device to a target path
-    static bool mount(const std::string& device, const std::string& target) {
-        std::cout << "[mount] Attaching " << device << " to " << target << "..." << std::endl;
+    // Mounts a device to a target path with optional flags
+    static bool mount(const std::string& device, const std::string& target, const std::string& options = "") {
+        std::cout << "[mount] Attaching " << (options.empty() ? "" : options + " ") << device << " to " << target << "..." << std::endl;
         mkdir_p(target);
-        std::string cmd = "mount \"" + device + "\" \"" + target + "\" > /dev/null 2>&1";
-        uli::runtime::BlackBox::log("MOUNT: " + device + " -> " + target);
+        
+        std::string cmd = "mount " + (options.empty() ? "" : options + " ") + "\"" + device + "\" \"" + target + "\" > /dev/null 2>&1";
+        uli::runtime::BlackBox::log("MOUNT: " + (options.empty() ? "" : options + " ") + device + " -> " + target);
+        
         bool res = (std::system(cmd.c_str()) == 0);
         if (!res) uli::runtime::BlackBox::log("ERROR: Mount failed for " + device);
         return res;

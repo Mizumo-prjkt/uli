@@ -528,11 +528,11 @@ public:
   // Mounts virtual filesystems needed for chroot (proc, sys, dev)
   static bool mount_api_systems(const std::string &root) {
     bool ok = true;
-    ok &= uli::partitioner::format::MountWrapper::mount("-t proc /proc", root + "/proc");
-    ok &= uli::partitioner::format::MountWrapper::mount("-t sysfs /sys", root + "/sys");
-    ok &= uli::partitioner::format::MountWrapper::mount("--bind /dev", root + "/dev");
-    ok &= uli::partitioner::format::MountWrapper::mount("--bind /dev/pts", root + "/dev/pts");
-    ok &= uli::partitioner::format::MountWrapper::mount("--bind /run", root + "/run");
+    ok &= uli::partitioner::format::MountWrapper::mount("proc", root + "/proc", "-t proc");
+    ok &= uli::partitioner::format::MountWrapper::mount("sysfs", root + "/sys", "-t sysfs");
+    ok &= uli::partitioner::format::MountWrapper::mount("/dev", root + "/dev", "--bind");
+    ok &= uli::partitioner::format::MountWrapper::mount("/dev/pts", root + "/dev/pts", "--bind");
+    ok &= uli::partitioner::format::MountWrapper::mount("/run", root + "/run", "--bind");
     return ok;
   }
 
