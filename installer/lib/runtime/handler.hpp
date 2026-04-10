@@ -515,11 +515,7 @@ public:
       }
     }
 
-    // After physical mounts, overlay virtual filesystems for chroot
-    if (!mount_api_systems("/mnt")) {
-      Warn::print_error("Failed to mount virtual API filesystems to /mnt");
-      return false;
-    }
+
 
     return true;
   }
