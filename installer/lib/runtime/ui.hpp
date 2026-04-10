@@ -330,8 +330,9 @@ public:
                     }
                 } else {
                     DialogBox::show_alert(_tr("Kernel Selection"), _tr("Kernel selection is locked to the standard 'linux' package for this distribution."));
-                    state.kernel = "linux";
+                    state.kernel = "kernel";
                 }
+
             } else if (action == "PKGS") { // Additional packages
                 state.additional_packages = UIHandler::handle_package_search(os_distro, state.additional_packages, state);
             } else if (action == "NET") { // Network configuration
@@ -414,9 +415,16 @@ public:
                 auto final_pkgs = uli::runtime::UIHandler::refine_package_list(os_distro, state);
                 
                 std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
-                if (os_distro == "Arch Linux") pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
-                else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
-                else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
+                if (os_distro == "Arch Linux") {
+                    pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
+                    pm->load_translation_from_string(uli::package_mgr::BUILTIN_TRANS_ARCH);
+                } else if (os_distro == "Alpine Linux") {
+                    pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
+                    pm->load_translation_from_string(uli::package_mgr::BUILTIN_TRANS_ALPINE);
+                } else {
+                    pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
+                    pm->load_translation_from_string(uli::package_mgr::BUILTIN_TRANS_DEBIAN);
+                }
                 
                 // Enable Bootstrap mode for installer (targets /mnt)
                 setenv("ULI_BOOTSTRAP", "1", 1);

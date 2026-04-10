@@ -56,12 +56,13 @@ public:
         
         // Ensure kernel headers match current kernel selection
         if (!state.kernel.empty()) {
-            std::string header_pkg = state.kernel + "-headers";
+            std::string header_key = "kernel_headers";
             // Check for duplicates
-            if (std::find(state.additional_packages.begin(), state.additional_packages.end(), header_pkg) == state.additional_packages.end()) {
-                state.additional_packages.push_back(header_pkg);
+            if (std::find(state.additional_packages.begin(), state.additional_packages.end(), header_key) == state.additional_packages.end()) {
+                state.additional_packages.push_back(header_key);
             }
         }
+
     }
 };
 

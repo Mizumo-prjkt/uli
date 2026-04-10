@@ -540,31 +540,34 @@ public:
   static std::vector<std::string> refine_package_list(const std::string &distro,
                                                       const MenuState &state) {
     std::vector<std::string> final_list = state.additional_packages;
+    auto ensure_pkg = [&](const std::string &pkg) {
+      if (std::find(final_list.begin(), final_list.end(), pkg) ==
+          final_list.end()) {
+        final_list.push_back(pkg);
+      }
+    };
+
     if (distro == "Arch Linux") {
-      auto ensure_pkg = [&](const std::string &pkg) {
-        if (std::find(final_list.begin(), final_list.end(), pkg) ==
-            final_list.end()) {
-          final_list.push_back(pkg);
-        }
-      };
       ensure_pkg("base");
       ensure_pkg("linux-firmware");
-
-      // Kernel is already in state.kernel (default "linux"), also ensure
-      // headers if requested
-      if (!state.kernel.empty())
-        ensure_pkg(state.kernel);
 
       // Bootloader requirements
       if (state.bootloader == "grub") {
         ensure_pkg("grub");
         ensure_pkg("efibootmgr");
       } else if (state.bootloader == "systemd-boot") {
-        ensure_pkg("efibootmgr"); // Useful for bootctl and efi management
+        ensure_pkg("efibootmgr");
       }
     }
+
+    // Kernel is required for a bootable system on any distribution
+    if (!state.kernel.empty()) {
+      ensure_pkg(state.kernel);
+    }
+
     return final_list;
   }
+
 
   // Generates fstab for the target system using genfstab
   static bool generate_fstab(const std::string &mount_point) {
