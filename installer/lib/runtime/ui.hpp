@@ -10,6 +10,7 @@
 #include "design_ui.hpp"
 #include "dialogbox.hpp"
 #include "warn.hpp"
+#include "dependency_check.hpp"
 #include "handler.hpp"
 #include "post_installer.hpp"
 #include "network_metrics.hpp"
@@ -372,6 +373,16 @@ public:
 
     // Static helper to execute the final installation sequence
     static void execute_install(const std::string& os_distro, MenuState& state) {
+        // 0. Preliminary Dependency Check
+        auto dep_result = uli::runtime::DependencyChecker::check_essentials(os_distro);
+        if (!dep_result.success) {
+            std::string msg = "Critical system tools are missing for " + os_distro + " installation:\n\n" + 
+                               dep_result.missing_tools + "\n\n" +
+                               "Please install these dependencies (e.g., 'apt install gdisk' or 'pacman -S gdisk') and restart.";
+            DialogBox::show_alert("System Readiness Failure", msg);
+            return;
+        }
+
         // Cache state for recovery
         uli::runtime::config::PersistenceManager::save_recovery(state);
 

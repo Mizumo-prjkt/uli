@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstdlib>
 #include "../../runtime/blackbox.hpp"
+#include <unistd.h>
 
 namespace uli {
 namespace partitioner {
@@ -12,13 +13,56 @@ namespace sgdisk {
 
 class SgdiskWrapper {
 public:
-    // Wipes the disk and creates a new GUID Partition Table (GPT)
+    // Wipes the disk and creates a new GUID Partition Table (GPT) with multi-tool fallbacks
     static bool create_gpt_table(const std::string& disk_path) {
-        std::cout << "[sgdisk] Initializing GPT on \"" << disk_path << "\"" << std::endl;
-        // -Z zaps the disk (destroys structures), -o creates a new protective MBR and empty GPT
-        std::string cmd = "sgdisk -Z -o \"" + disk_path + "\" > /dev/null 2>&1";
-        uli::runtime::BlackBox::log("EXEC: " + cmd);
-        return (std::system(cmd.c_str()) == 0);
+        uli::runtime::BlackBox::log("ENTER create_gpt_table on " + disk_path);
+        
+        auto has_bin = [](const std::string& name) {
+            std::string cmd = "command -v " + name + " > /dev/null 2>&1";
+            return (std::system(cmd.c_str()) == 0);
+        };
+
+        // Fallback 1: Preferred (sgdisk)
+        if (has_bin("sgdisk")) {
+            uli::runtime::BlackBox::log("GPT INIT: Using primary tool (sgdisk)");
+            std::cout << "[partitioner] Initializing GPT via sgdisk (Level 1)...\n";
+            
+            // Sequential robust initialization
+            std::string zap = "sgdisk --zap-all \"" + disk_path + "\" > /dev/null 2>&1";
+            std::string clr = "sgdisk --clear \"" + disk_path + "\" > /dev/null 2>&1";
+            std::string m2g = "sgdisk --mbrtogpt \"" + disk_path + "\" > /dev/null 2>&1";
+            
+            if (std::system(zap.c_str()) == 0 && std::system(clr.c_str()) == 0) {
+                std::system(m2g.c_str());
+                return true;
+            }
+            uli::runtime::BlackBox::log("WARNING: sgdisk failed. Falling back to fdisk...");
+        }
+
+        // Fallback 2: Secondary (fdisk)
+        if (has_bin("fdisk")) {
+            uli::runtime::BlackBox::log("GPT INIT: Using fallback tool (fdisk)");
+            std::cout << "[partitioner] Initializing GPT via fdisk (Level 2)...\n";
+            
+            // Nuclear wipe first to clear any messy residues
+            std::string wipe = "dd if=/dev/zero of=\"" + disk_path + "\" bs=1M count=10 conv=notrunc > /dev/null 2>&1";
+            std::system(wipe.c_str());
+
+            // Script fdisk to create GPT
+            std::string cmd = "printf \"g\\nw\\n\" | fdisk \"" + disk_path + "\" > /dev/null 2>&1";
+            if (std::system(cmd.c_str()) == 0) return true;
+        }
+
+        // Fallback 3: Tertiary (parted)
+        if (has_bin("parted")) {
+            uli::runtime::BlackBox::log("GPT INIT: Using final fallback (parted)");
+            std::cout << "[partitioner] Initializing GPT via parted (Level 3)...\n";
+            std::string cmd = "parted -s \"" + disk_path + "\" mklabel gpt > /dev/null 2>&1";
+            if (std::system(cmd.c_str()) == 0) return true;
+        }
+
+        uli::runtime::BlackBox::log("FATAL: All GPT initialization tools failed!");
+        return false;
     }
     
     // Creates a partition. 'part_num' is the structural index, 'type_code' is the EFI hex (e.g. ef00 for EFI, 8300 for Linux)
