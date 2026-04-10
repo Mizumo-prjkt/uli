@@ -23,6 +23,15 @@ public:
         std::string missing_tools;
     };
 
+    static bool try_self_heal(const std::string& tool, const std::string& distro) {
+        if (distro == "Debian" && tool == "debootstrap") {
+            BlackBox::log("SELF_HEAL: Attempting to install debootstrap on host...");
+            std::system("apt-get update > /dev/null 2>&1");
+            return (std::system("apt-get install -y debootstrap > /dev/null 2>&1") == 0);
+        }
+        return false;
+    }
+
     static CheckResult check_essentials(const std::string& distro) {
         std::vector<std::string> critical;
         
@@ -35,7 +44,13 @@ public:
         critical.push_back("partprobe");
 
         // Distro specific
-        if (distro == "Arch Linux") {
+        if (distro == "Debian") {
+            if (!has_binary("debootstrap")) {
+                if (!try_self_heal("debootstrap", distro)) {
+                    critical.push_back("debootstrap");
+                }
+            }
+        } else if (distro == "Arch Linux") {
             critical.push_back("genfstab");
         }
 

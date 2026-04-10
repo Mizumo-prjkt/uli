@@ -418,16 +418,14 @@ public:
                 else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
                 else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
                 
-                // --- Synchronization Phase ---
-                bool sync_attempted = false;
-                if (state.force_sync) {
-                    Warn::print_info("Forced synchronization requested...");
-                    pm->sync_system();
-                    sync_attempted = true;
-                } else if (!pm->is_synced()) {
-                    Warn::print_info("Package manager requires synchronization (Keyrings/Metadata)...");
-                    pm->sync_system();
-                    sync_attempted = true;
+                // Enable Bootstrap mode for installer (targets /mnt)
+                setenv("ULI_BOOTSTRAP", "1", 1);
+                if (os_distro == "Debian") {
+                    std::string suite = (state.debian_version == 12) ? "bookworm" : "trixie";
+                    setenv("ULI_DEBIAN_SUITE", suite.c_str(), 1);
+                    if (!state.active_mirrors.empty() && state.active_mirrors[0] != "Default") {
+                        setenv("ULI_DEBIAN_MIRROR", state.active_mirrors[0].c_str(), 1);
+                    }
                 }
 
                 std::string command = pm->build_install_command(final_pkgs);

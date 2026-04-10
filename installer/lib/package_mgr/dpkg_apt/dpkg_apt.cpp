@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include "../../runtime/blackbox.hpp"
 
 namespace uli {
@@ -111,10 +112,41 @@ bool DpkgAptManager::load_translation_from_string(const std::string &yaml_str) {
   }
 }
 
+static int detect_debian_version() {
+  std::ifstream file("/etc/os-release");
+  if (!file.is_open()) return 12; // Default to bookworm
+  std::string line;
+  while (std::getline(file, line)) {
+    if (line.find("VERSION_ID=") == 0) {
+      std::string val = line.substr(11);
+      if (!val.empty() && val[0] == '"') val = val.substr(1, val.size() - 2);
+      try { return std::stoi(val); } catch (...) { return 12; }
+    }
+  }
+  return 12;
+}
+
 std::string DpkgAptManager::build_install_command(
     const std::vector<std::string> &abstract_packages) const {
   std::stringstream cmd;
-  cmd << config.install_cmd;
+
+  bool is_bootstrap = (std::getenv("ULI_BOOTSTRAP") != nullptr);
+  if (is_bootstrap) {
+    int version = detect_debian_version();
+    std::string suite = (std::getenv("ULI_DEBIAN_SUITE") ? std::string(std::getenv("ULI_DEBIAN_SUITE")) : "trixie");
+    std::string mirror = (std::getenv("ULI_DEBIAN_MIRROR") ? std::string(std::getenv("ULI_DEBIAN_MIRROR")) : "http://deb.debian.org/debian/");
+    
+    // Phase 1: Bootstrap the base system
+    cmd << "debootstrap " << suite << " /mnt " << mirror << " && ";
+    
+    // Phase 2: chroot and install extra packages
+    // If version >= 13, use 'apt', else 'apt-get'
+    std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
+    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin << " update && ";
+    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin << " install -y";
+  } else {
+    cmd << config.install_cmd;
+  }
 
   for (const auto &pkg : abstract_packages) {
     cmd << " " << translate_package(pkg);
