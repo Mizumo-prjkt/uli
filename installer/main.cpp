@@ -17,6 +17,7 @@
 #include "lib/partitioner/diskcheck.hpp"
 #include "lib/partitioner/partdisk/partdisk.hpp"
 #include "lib/partitioner/partition_translator.hpp"
+#include "lib/runtime/blackbox.hpp"
 #include "lib/runtime/sudden_abort.hpp"
 #include "lib/runtime/term_capable_check.hpp"
 #include "lib/runtime/test_simulation.hpp"
@@ -24,7 +25,6 @@
 #include "lib/runtime/warn.hpp"
 #include "lib/runtime_check.hpp"
 #include "uli_version.hpp"
-#include "lib/runtime/blackbox.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -74,10 +74,12 @@ int main(int argc, char *argv[]) {
                                           "--profile",
                                           "--dict",
                                           "--boot-repair",
+                                          "--root",
+                                          "--efi",
                                           "--force-small-disk",
                                           "--load-last-error",
-                                          "--lintcheck",
 
+                                          "--lintcheck",
 
                                           "--disable-builtin-dict",
                                           "--unattended",
@@ -89,11 +91,11 @@ int main(int argc, char *argv[]) {
   uli::checks::DistroType current_distro = uli::checks::detect_distribution();
   uli::bootarg::BootArgs bootargs = uli::bootarg::parse_boot_args();
   std::string cli_profile_path = "";
+  std::string cli_root_path = "";
+  std::string cli_efi_path = "";
   bool run_lint = false;
   bool disable_builtin_dict = false;
   bool load_last_error = false;
-
-
 
   if (!bootargs.distro_override.empty()) {
     if (bootargs.distro_override == "debian") {
@@ -188,7 +190,14 @@ int main(int argc, char *argv[]) {
     } else if (arg == "--boot-repair" && i + 1 < argc) {
       cli_profile_path = argv[++i];
       bootargs.is_repair_mode = true;
+    } else if (arg == "--root" && i + 1 < argc) {
+      cli_root_path = argv[++i];
+      bootargs.is_repair_mode = true;
+    } else if (arg == "--efi" && i + 1 < argc) {
+      cli_efi_path = argv[++i];
+      bootargs.is_repair_mode = true;
     } else if (arg == "--profile" && i + 1 < argc) {
+
       cli_profile_path = argv[++i];
     } else if (arg == "--dict" && i + 1 < argc) {
       bootargs.translation_yaml = argv[++i];
@@ -487,8 +496,9 @@ int main(int argc, char *argv[]) {
     }
     preloaded_state.force_sync |= bootargs.force_sync;
 
-    if (bootargs.is_repair_mode && !cli_profile_path.empty()) {
-      uli::runtime::UIManager::start_repair_mode(distro_name, cli_profile_path);
+    if (bootargs.is_repair_mode) {
+      uli::runtime::UIManager::start_repair_mode(distro_name, cli_profile_path,
+                                                 cli_root_path, cli_efi_path);
     } else {
       uli::runtime::UIManager::start_ui(distro_name, detected_debian_version,
                                         preloaded_state, load_last_error);
@@ -497,7 +507,6 @@ int main(int argc, char *argv[]) {
   } else {
     std::cout << "\n[INFO] Unattended Mode sequence initiated. Processing "
                  "config instructions automatically.\n";
-
 
     uli::runtime::MenuState preloaded_state;
     std::string final_profile = cli_profile_path;

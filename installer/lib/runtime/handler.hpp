@@ -494,30 +494,32 @@ public:
               });
 
     for (const auto &p : sorted_parts) {
-      if (p.device_path.empty())
+      std::string real_path = p.get_real_device_path();
+      if (real_path.empty())
         continue;
 
       if (p.fs_type == "swap") {
-        if (!uli::partitioner::format::MountWrapper::swapon(p.device_path)) {
-          Warn::print_error("Failed to initialize swap on " + p.device_path);
+        if (!uli::partitioner::format::MountWrapper::swapon(real_path)) {
+          Warn::print_error("Failed to initialize swap on " + real_path);
           return false;
         }
       } else if (p.mount_point == "/") {
-        if (!uli::partitioner::format::MountWrapper::mount(p.device_path,
+        if (!uli::partitioner::format::MountWrapper::mount(real_path,
                                                            "/mnt")) {
-          Warn::print_error("Failed to mount Root partition to /mnt");
+          Warn::print_error("Failed to mount Root partition to /mnt (" + real_path + ")");
           return false;
         }
       } else if (!p.mount_point.empty()) {
         std::string target = "/mnt" + p.mount_point;
-        if (!uli::partitioner::format::MountWrapper::mount(p.device_path,
+        if (!uli::partitioner::format::MountWrapper::mount(real_path,
                                                            target)) {
           Warn::print_error("Failed to mount " + p.mount_point + " to " +
-                            target);
+                            target + " (" + real_path + ")");
           return false;
         }
       }
     }
+
 
 
 
@@ -693,12 +695,13 @@ public:
   static bool verify_partitions_exist(const MenuState &state) {
     BlackBox::log("Reparing PRE-FLIGHT: Verifying block devices and sizes...");
     for (const auto &p : state.partitions) {
-        if (p.device_path.empty()) continue;
+        std::string real_path = p.get_real_device_path();
+        if (real_path.empty()) continue;
         
         // 1. Exact existence check
-        std::string cmd = "lsblk " + p.device_path + " 2>/dev/null";
+        std::string cmd = "lsblk " + real_path + " 2>/dev/null";
         if (std::system(cmd.c_str()) != 0) {
-            Warn::print_error("Repair logic failed: Block device " + p.device_path + " not found!");
+            Warn::print_error("Repair logic failed: Block device " + real_path + " not found!");
             return false;
         }
 
@@ -706,17 +709,17 @@ public:
         if (!p.size_cmd.empty() && std::isdigit(p.size_cmd[0])) {
             try {
                 long long yaml_bytes = std::stoll(p.size_cmd);
-                long long actual_bytes = uli::partitioner::DiskCheck::get_disk_size_bytes(p.device_path);
+                long long actual_bytes = uli::partitioner::DiskCheck::get_disk_size_bytes(real_path);
                 
                 // Allow a 2MB tolerance for alignment differences
                 long long diff = std::abs(actual_bytes - yaml_bytes);
                 if (diff > 2 * 1024 * 1024) {
-                    Warn::print_warning("Size Mismatch for " + p.device_path + ": YAML=" + 
+                    Warn::print_warning("Size Mismatch for " + real_path + ": YAML=" + 
                                        std::to_string(yaml_bytes) + " vs HW=" + std::to_string(actual_bytes));
                     
                     std::vector<std::string> choices = {"Continue anyway", "Abort Repair"};
                     int sel = DialogBox::ask_selection("Size Inconsistency", 
-                                "The size of " + p.device_path + " does not match the YAML exactly. Continue?", choices);
+                                "The size of " + real_path + " does not match the YAML exactly. Continue?", choices);
                     if (sel != 0) return false;
                 }
             } catch (...) {
@@ -726,6 +729,7 @@ public:
     }
     return true;
   }
+
 };
 
 

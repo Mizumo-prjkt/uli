@@ -27,7 +27,23 @@ struct PartitionConfig {
   std::string size_cmd = "";
   std::string type_code = "";
   int part_num = 0;
+
+  // Helper to resolve the actual partition node (e.g., sda1 or nvme0n1p1)
+  std::string get_real_device_path() const {
+    if (device_path.empty() || part_num <= 0) return device_path;
+
+    // Check if device ends in a digit (e.g. nvme0n1, mmcblk0)
+    // In these cases, partitions are suffixed with 'p'
+    char last = device_path.back();
+    if (std::isdigit(last)) {
+        return device_path + "p" + std::to_string(part_num);
+    }
+    
+    // Standard SATA/IDE (e.g. sda, sdb) just append number
+    return device_path + std::to_string(part_num);
+  }
 };
+
 
 struct UserConfig {
   std::string username;

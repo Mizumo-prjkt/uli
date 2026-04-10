@@ -722,19 +722,45 @@ public:
     return true;
   }
 
-  // Specialized entry point for bootloader hotpatching via --boot-repair
-  static void start_repair_mode(const std::string &os_distro, const std::string &yaml_path) {
+  // Specialized entry point for bootloader hotpatching via --boot-repair or direct flags
+  static void start_repair_mode(const std::string &os_distro, 
+                               const std::string &yaml_path,
+                               const std::string &root_path = "",
+                               const std::string &efi_path = "") {
     MenuState state;
-    Warn::print_info("Loading repair profile: " + yaml_path);
-    if (!uli::runtime::config::ConfigLoader::load_yaml_to_menu_state(yaml_path, state)) {
-        Warn::print_error("Failed to parse repair profile. Aborting.");
+    
+    if (!yaml_path.empty()) {
+        Warn::print_info("Loading repair profile: " + yaml_path);
+        if (!uli::runtime::config::ConfigLoader::load_yaml_to_menu_state(yaml_path, state)) {
+            Warn::print_error("Failed to parse repair profile. Aborting.");
+            return;
+        }
+    } else if (!root_path.empty() && !efi_path.empty()) {
+        Warn::print_info("Synthesizing manual repair profile from CLI flags...");
+        state.drive = root_path; // Use root as primary drive reference
+        state.bootloader = "grub";
+        
+        PartitionConfig root_p;
+        root_p.device_path = root_path;
+        root_p.mount_point = "/";
+        root_p.part_num = 0; // Already resolved by user
+        state.partitions.push_back(root_p);
+        
+        PartitionConfig efi_p;
+        efi_p.device_path = efi_path;
+        efi_p.mount_point = (os_distro == "Debian") ? "/boot/efi" : "/boot";
+        efi_p.fs_type = "vfat";
+        efi_p.part_num = 0; // Already resolved by user
+        state.partitions.push_back(efi_p);
+    } else {
+        Warn::print_error("Repair mode requires either a YAML profile (--boot-repair) OR direct paths (--root AND --efi).");
         return;
     }
 
     std::string banner = _tr("This will attempt to repair the bootloader on your existing system.\n") +
-                         _tr("Drive: ") + state.drive + "\n" +
+                         _tr("Root/Drive: ") + state.drive + "\n" +
                          _tr("Distribution: ") + os_distro + "\n\n" +
-                         _tr("CAUTION: Ensure your partition mapping in ") + yaml_path + _tr(" is accurate.");
+                         _tr("CAUTION: Ensure your partition mapping is accurate. This is a manual override.");
 
     if (DialogBox::ask_yes_no(_tr("Confirm Bootloader Repair"), banner)) {
         DesignUI::clear_screen();
@@ -745,6 +771,7 @@ public:
         }
     }
   }
+
 };
 
 
