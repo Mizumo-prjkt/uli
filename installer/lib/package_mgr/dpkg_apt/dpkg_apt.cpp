@@ -156,51 +156,53 @@ std::string DpkgAptManager::build_install_command(
     cmd << "debootstrap --include=locales,ca-certificates " << suite << " /mnt " << mirror << " && ";
 
     // Phase 2: Setup networking (DNS) for the chroot (MUST happen after debootstrap creates /etc)
-    cmd << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
-
-    // Phase 2.5: Mount API filesystems (Required for apt/dpkg terminal logging and kernel interaction)
-    cmd << "mount -t proc /proc /mnt/proc && ";
-    cmd << "mount -t sysfs /sys /mnt/sys && ";
-    cmd << "mount --bind /dev /mnt/dev && ";
-    
-    // Use robust devpts mount with ptmxmode=666 for posix_openpt support
-    cmd << "mount -t devpts devpts /mnt/dev/pts -o nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=666 && ";
-    cmd << "mount --bind /run /mnt/run && ";
-    
-    // Ensure /dev/ptmx is a symlink to pts/ptmx for devpts newinstance/chroot compatibility
-    cmd << "rm -f /mnt/dev/ptmx && ln -s pts/ptmx /mnt/dev/ptmx && ";
+    // We explicitly check if resolv.conf is a broken symlink (common DNS issue)
+    cmd << "if [ -L /mnt/etc/resolv.conf ] && [ ! -e /mnt/etc/resolv.conf ]; then rm -f /mnt/etc/resolv.conf; fi; "
+        << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
 
     // Phase 3: Setup policy-rc.d to prevent service hangs during install
     cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
     cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
 
+    // Check if we should use arch-chroot or rawdog it
+    bool raw_chroot = (std::getenv("ULI_DEBIAN_RAW_CHROOT") != nullptr && 
+                      std::string(std::getenv("ULI_DEBIAN_RAW_CHROOT")) == "1");
 
-    // Phase 4: Enable additional repository components (contrib non-free
-    // non-free-firmware) Supports DEB822 (Debian 13+) and Traditional (Debian
-    // 12-) formats
+    if (raw_chroot) {
+        uli::runtime::BlackBox::log("DPKG_APT: Using RAW manual mounts (FALLBACK MODE)");
+        // Phase 2.5: Manual API mounts (Fallback only!)
+        cmd << "mount -t proc /proc /mnt/proc && "
+            << "mount -t sysfs /sys /mnt/sys && "
+            << "mount --bind /dev /mnt/dev && "
+            << "mount -t devpts devpts /mnt/dev/pts -o nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=666 && "
+            << "mount --bind /run /mnt/run && "
+            << "rm -f /mnt/dev/ptmx && ln -s pts/ptmx /mnt/dev/ptmx && ";
+    }
+
+    // Phase 4: Enable additional repository components
     cmd << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
-        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free "
-           "non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
+        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
         << "fi; "
         << "if [ -f /mnt/etc/apt/sources.list ]; then "
-        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" "
-           "/mnt/etc/apt/sources.list; "
+        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" /mnt/etc/apt/sources.list; "
         << "fi && ";
 
-    // Phase 4.5: Locale Generation (Reduces perl warnings during package reconfiguration)
-    cmd << "chroot /mnt locale-gen en_US.UTF-8 && ";
-
-    // Phase 5: chroot and install extra packages
-    // If version >= 13, use 'apt', else 'apt-get'
+    // Phase 4.5 & 5: Locale generation and Package installation
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
-    cmd << "DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 chroot /mnt " << pm_bin
-        << " update && ";
-    cmd << "DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 chroot /mnt " << pm_bin
-        << " install -y";
+    std::string env = "DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8";
+    
+    if (!raw_chroot) {
+        cmd << "arch-chroot /mnt /bin/bash -c \"" << env << " locale-gen en_US.UTF-8\" && "
+            << "arch-chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " update\" && "
+            << "arch-chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " install -y";
+    } else {
+        cmd << "chroot /mnt /bin/bash -c \"" << env << " locale-gen en_US.UTF-8\" && "
+            << "chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " update\" && "
+            << "chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " install -y";
+    }
 
+    uli::runtime::BlackBox::log("DPKG_APT: Bootstrap command chain initialized (standard)");
 
-    // We'll append the packages later in the loop
-    uli::runtime::BlackBox::log("DPKG_APT: Bootstrap command chain initialized");
 
   } else {
     cmd << config.install_cmd;
