@@ -146,6 +146,15 @@ std::string DpkgAptManager::build_install_command(
     cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
     cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
 
+    // Phase 4: Enable additional repository components (contrib non-free non-free-firmware)
+    // Supports DEB822 (Debian 13+) and Traditional (Debian 12-) formats
+    cmd << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
+        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
+        << "fi; "
+        << "if [ -f /mnt/etc/apt/sources.list ]; then "
+        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" /mnt/etc/apt/sources.list; "
+        << "fi && ";
+
     // Phase 4: chroot and install extra packages
     // If version >= 13, use 'apt', else 'apt-get'
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";

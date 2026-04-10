@@ -40,6 +40,9 @@ package_map:
   x11: "xorg"
   gnome_minimal: "gnome-core"
   kde_minimal: "kde-plasma-desktop"
+  linux-headers: "linux-headers-amd64"
+  linux-firmware: "firmware-linux"
+  firmware-linux: "firmware-linux"
 )";
 
 // Onboard Instruction Set - Arch Linux Fallback
