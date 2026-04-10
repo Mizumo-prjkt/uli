@@ -213,13 +213,20 @@ std::string DpkgAptManager::build_install_command(
   }
 
   if (is_bootstrap) {
-    // Phase 6: Cleanup Phase
-    // 1. Remove policy-rc.d
-    // 2. Lazy unmount API filesystems to avoid 'device is busy' errors during
-    // cleanup
-    cmd << " && rm -f /mnt/usr/sbin/policy-rc.d"
-        << " && umount -l /mnt/dev/pts /mnt/dev /mnt/proc /mnt/sys /mnt/run";
+    // Close the arch-chroot/chroot bash -c quote
+    cmd << "\"";
+
+    // Phase 6: Cleanup Phase (Run on host)
+    cmd << " && rm -f /mnt/usr/sbin/policy-rc.d";
+
+    // Only manual unmount if we didn't use arch-chroot (which manages its own mounts)
+    bool raw_chroot = (std::getenv("ULI_DEBIAN_RAW_CHROOT") != nullptr && 
+                      std::string(std::getenv("ULI_DEBIAN_RAW_CHROOT")) == "1");
+    if (raw_chroot) {
+        cmd << " && umount -l /mnt/dev/pts /mnt/dev /mnt/proc /mnt/sys /mnt/run";
+    }
   }
+
 
   return cmd.str();
 }
