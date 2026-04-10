@@ -152,24 +152,28 @@ std::string DpkgAptManager::build_install_command(
                               ? std::string(std::getenv("ULI_DEBIAN_MIRROR"))
                               : "http://deb.debian.org/debian/");
 
-    // Phase 1: Bootstrap the base system (Creates the directory structure)
-    cmd << "debootstrap " << suite << " /mnt " << mirror << " && ";
+    // Phase 1: Bootstrap the base system (Include locales and ca-certs for early normalization)
+    cmd << "debootstrap --include=locales,ca-certificates " << suite << " /mnt " << mirror << " && ";
 
-    // Phase 2: Setup networking (DNS) for the chroot (MUST happen after
-    // debootstrap creates /etc)
+    // Phase 2: Setup networking (DNS) for the chroot (MUST happen after debootstrap creates /etc)
     cmd << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
 
-    // Phase 2.5: Mount API filesystems (Required for apt/dpkg terminal logging
-    // and kernel interaction)
+    // Phase 2.5: Mount API filesystems (Required for apt/dpkg terminal logging and kernel interaction)
     cmd << "mount -t proc /proc /mnt/proc && ";
     cmd << "mount -t sysfs /sys /mnt/sys && ";
     cmd << "mount --bind /dev /mnt/dev && ";
-    cmd << "mount --bind /dev/pts /mnt/dev/pts && ";
+    
+    // Use robust devpts mount with ptmxmode=666 for posix_openpt support
+    cmd << "mount -t devpts devpts /mnt/dev/pts -o nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=666 && ";
     cmd << "mount --bind /run /mnt/run && ";
+    
+    // Ensure /dev/ptmx is a symlink to pts/ptmx for devpts newinstance/chroot compatibility
+    cmd << "rm -f /mnt/dev/ptmx && ln -s pts/ptmx /mnt/dev/ptmx && ";
 
     // Phase 3: Setup policy-rc.d to prevent service hangs during install
     cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
     cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
+
 
     // Phase 4: Enable additional repository components (contrib non-free
     // non-free-firmware) Supports DEB822 (Debian 13+) and Traditional (Debian
@@ -183,13 +187,17 @@ std::string DpkgAptManager::build_install_command(
            "/mnt/etc/apt/sources.list; "
         << "fi && ";
 
+    // Phase 4.5: Locale Generation (Reduces perl warnings during package reconfiguration)
+    cmd << "chroot /mnt locale-gen en_US.UTF-8 && ";
+
     // Phase 5: chroot and install extra packages
     // If version >= 13, use 'apt', else 'apt-get'
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
-    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin
+    cmd << "DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 chroot /mnt " << pm_bin
         << " update && ";
-    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin
+    cmd << "DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 chroot /mnt " << pm_bin
         << " install -y";
+
 
     // We'll append the packages later in the loop
     uli::runtime::BlackBox::log("DPKG_APT: Bootstrap command chain initialized");
