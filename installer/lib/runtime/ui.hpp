@@ -546,9 +546,8 @@ public:
         if (std::system("command -v arch-chroot > /dev/null 2>&1") != 0) {
           Warn::print_info("arch-chroot missing. Attempting automated "
                            "installation via host...");
-          if (std::system("apt-get update && apt-get install -y arch-install-scripts > /dev/null 2>&1") != 0) {
-
-
+          if (std::system(
+                  "apt install arch-install-scripts > /dev/null 2>&1") != 0) {
             Warn::print_warning(
                 "Automated installation of arch-install-scripts failed.");
 
