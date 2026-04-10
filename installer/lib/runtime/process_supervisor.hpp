@@ -11,6 +11,7 @@
 #include <signal.h>
 #include "warn.hpp"
 #include "blackbox.hpp"
+#include "../documentation/extrahelp.hpp"
 
 namespace uli {
 namespace runtime {
@@ -19,7 +20,8 @@ enum class SupervisionResult {
     SUCCESS,
     FAILURE,
     RESTART_SOFT, // Ctrl+U or O->o
-    RESTART_HARD  // Ctrl+R or O->Enter
+    RESTART_HARD, // Ctrl+R or O->Enter
+    ABORT         // Ctrl+C
 };
 
 class ProcessSupervisor {
@@ -29,7 +31,8 @@ public:
         
         pid_t child_pid = fork();
         if (child_pid == 0) {
-            // Child process
+            // Child process: set process group to itself to allow killing sub-tree
+            setpgid(0, 0); 
             execl("/bin/sh", "sh", "-c", command.c_str(), (char*)NULL);
             exit(1);
         } else if (child_pid < 0) {
@@ -77,22 +80,29 @@ public:
                 if (read(STDIN_FILENO, &c, 1) > 0) {
                     if (c == 0x15) { // Ctrl+U (NAK)
                         BlackBox::log("SUPERVISOR: Caught Ctrl+U (Soft Restart)");
-                        kill(child_pid, SIGKILL);
+                        kill(-child_pid, SIGKILL); // Kill process group
+                        waitpid(child_pid, &status, 0);
                         result = SupervisionResult::RESTART_SOFT;
                         break;
                     } else if (c == 0x12) { // Ctrl+R (DC2)
                         BlackBox::log("SUPERVISOR: Caught Ctrl+R (Hard Restart)");
-                        kill(child_pid, SIGKILL);
+                        kill(-child_pid, SIGKILL); // Kill process group
+                        waitpid(child_pid, &status, 0);
                         result = SupervisionResult::RESTART_HARD;
                         break;
+                    } else if (c == 0x08) { // Ctrl+H (BS/Help)
+                        uli::documentation::print_supervision_help();
+                        std::cout << "\n[INFO] Resuming session monitoring...\n";
                     } else if (c == 0x0F) { // Ctrl+O (SI)
                         BlackBox::log("SUPERVISOR: Caught Ctrl+O (Hold Mode)");
-                        kill(child_pid, SIGKILL);
+                        kill(-child_pid, SIGKILL); // Kill process group
+                        waitpid(child_pid, &status, 0);
                         
                         std::cout << "\n\n\033[1;33m--- INSTALLER ON HOLD ---\033[0m\n";
                         std::cout << "Installation paused. Select your next step:\n";
                         std::cout << " [o] Restart package installation (Soft Retry)\n";
                         std::cout << " [Enter] Restart from drive formatting (Hard Redo)\n";
+                        std::cout << " [h] View Troubleshooting Help\n";
                         std::cout << " [Any other key] Cancel and Abort\n";
                         
                         // Wait for specific input in hold mode
@@ -104,12 +114,22 @@ public:
                                 } else if (c == '\n' || c == '\r') {
                                     result = SupervisionResult::RESTART_HARD;
                                     break;
+                                } else if (c == 'h' || c == 'H') {
+                                    uli::documentation::print_supervision_help();
+                                    std::cout << "\n[HOLD] Select o, Enter, or any other key to abort: ";
+                                    continue;
                                 } else {
                                     result = SupervisionResult::FAILURE;
                                     break;
                                 }
                             }
                         }
+                        break;
+                    } else if (c == 0x03) { // Ctrl+C (ETX/Abort)
+                        BlackBox::log("SUPERVISOR: Caught Ctrl+C (Abort Engine)");
+                        kill(-child_pid, SIGKILL);
+                        waitpid(child_pid, &status, 0);
+                        result = SupervisionResult::ABORT;
                         break;
                     }
                 }

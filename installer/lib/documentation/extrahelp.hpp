@@ -31,6 +31,27 @@ inline void print_extra_help() {
               << "For standard usage, run `uli_installer --help`.\n";
 }
 
+inline void print_supervision_help() {
+    std::cout << "\nInstallation Supervision Controls\n"
+              << "===============================\n"
+              << "While the installation is running, you can use these shortcuts:\n\n"
+              << "  Ctrl + U : Soft Restart\n"
+              << "             Terminates the current package installation and restarts it\n"
+              << "             immediately. Mounts and partitions are preserved.\n\n"
+              << "  Ctrl + R : Hard Restart (Full Nuclear Option)\n"
+              << "             Terminates the process, unmounts all partitions, disables swap,\n"
+              << "             and restarts everything from disk formatting.\n\n"
+              << "  Ctrl + O : Hold Mode\n"
+              << "             Pauses the installer and allows you to choose between a\n"
+              << "             Soft Restart ('o') or a Hard Restart ('Enter').\n\n"
+              << "  Ctrl + H : Help Guide\n"
+              << "             Shows this reference manual.\n\n"
+              << "  Ctrl + C : Abort Installation\n"
+              << "             Terminates everything, unmounts disks, and exits the software.\n\n"
+              << "These controls are useful if your internet is slow, a download hangs,\n"
+              << "or you realize you need to change your partitioning layout mid-install.\n";
+}
+
 } // namespace documentation
 } // namespace uli
 

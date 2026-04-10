@@ -379,11 +379,12 @@ public:
             DesignUI::clear_screen();
             Warn::print_info("Installation sequence initiated for " + os_distro);
             Warn::print_info("Target Environment: " + state.drive);
-            Warn::print_info("Controls: Ctrl+U (Soft Restart), Ctrl+O (Hold Mode), Ctrl+R (Hard Restart)");
+            Warn::print_info("Controls: Ctrl+U (Soft), Ctrl+O (Hold), Ctrl+R (Hard), Ctrl+H (Help Guide)");
             
             // 1. Run the deferred format destruction layout logic
             if (!uli::runtime::UIHandler::execute_deferred_partitions(state)) {
                 Warn::print_error("Halting Installation: Disk Format failed.");
+                uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
                 return;
             }
 
@@ -433,6 +434,11 @@ public:
                     Warn::print_warning("INTERRUPT: Hard Restart Requested. Redoing full installation from format stage...");
                     uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
                     break; // Break soft loop to restart hard loop
+                } else if (s_res == SupervisionResult::ABORT) {
+                    Warn::print_warning("\n\033[1;31m!! INSTALLATION ABORTED BY USER !!\033[0m");
+                    Warn::print_info("Cleaning up mounts and exiting...");
+                    uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+                    exit(0);
                 } else if (s_res == SupervisionResult::FAILURE) {
                     Warn::print_error("Installation command failed! Check logs for details.");
                     uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
