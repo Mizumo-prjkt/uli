@@ -440,10 +440,15 @@ public:
       if (!uli::partitioner::format::MkfsWrapper::format_partition(
               dev_part_path, p.fs_type, p.label)) {
         BlackBox::log("ERROR: Formatting failed for " + dev_part_path);
-        DialogBox::show_alert("Partitioning Error", "Failed to format " + dev_part_path + " as " + p.fs_type + ".\n\n"
-                             "The device may be locked by another program (like cfdisk, fdisk, or an automounter).\n"
-                             "Please ensure no other partitioning tools are open and try again.\n\n"
-                             "Check /tmp/uli_blackbox.log for details.");
+        DialogBox::show_alert("Partitioning Error",
+                              "Failed to format " + dev_part_path + " as " +
+                                  p.fs_type +
+                                  ".\n\n"
+                                  "The device may be locked by another program "
+                                  "(like cfdisk, fdisk, or an automounter).\n"
+                                  "Please ensure no other partitioning tools "
+                                  "are open and try again.\n\n"
+                                  "Check /tmp/uli_blackbox.log for details.");
         return false;
       }
 
@@ -512,8 +517,8 @@ public:
 
     // After physical mounts, overlay virtual filesystems for chroot
     if (!mount_api_systems("/mnt")) {
-        Warn::print_error("Failed to mount virtual API filesystems to /mnt");
-        return false;
+      Warn::print_error("Failed to mount virtual API filesystems to /mnt");
+      return false;
     }
 
     return true;
@@ -528,11 +533,16 @@ public:
   // Mounts virtual filesystems needed for chroot (proc, sys, dev)
   static bool mount_api_systems(const std::string &root) {
     bool ok = true;
-    ok &= uli::partitioner::format::MountWrapper::mount("proc", root + "/proc", "-t proc");
-    ok &= uli::partitioner::format::MountWrapper::mount("sysfs", root + "/sys", "-t sysfs");
-    ok &= uli::partitioner::format::MountWrapper::mount("/dev", root + "/dev", "--bind");
-    ok &= uli::partitioner::format::MountWrapper::mount("/dev/pts", root + "/dev/pts", "--bind");
-    ok &= uli::partitioner::format::MountWrapper::mount("/run", root + "/run", "--bind");
+    ok &= uli::partitioner::format::MountWrapper::mount("proc", root + "/proc",
+                                                        "-t proc");
+    ok &= uli::partitioner::format::MountWrapper::mount("sysfs", root + "/sys",
+                                                        "-t sysfs");
+    ok &= uli::partitioner::format::MountWrapper::mount("/dev", root + "/dev",
+                                                        "--bind");
+    ok &= uli::partitioner::format::MountWrapper::mount(
+        "/dev/pts", root + "/dev/pts", "--bind");
+    ok &= uli::partitioner::format::MountWrapper::mount("/run", root + "/run",
+                                                        "--bind");
     return ok;
   }
 
@@ -567,7 +577,6 @@ public:
 
     return final_list;
   }
-
 
   // Generates fstab for the target system using genfstab
   static bool generate_fstab(const std::string &mount_point) {

@@ -1,9 +1,9 @@
 #include "dpkg_apt.hpp"
+#include "../../runtime/blackbox.hpp"
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <sstream>
-#include <fstream>
-#include "../../runtime/blackbox.hpp"
 
 namespace uli {
 namespace package_mgr {
@@ -20,7 +20,8 @@ DpkgAptManager::DpkgAptManager() {
 bool DpkgAptManager::is_synced() {
   // Check if /var/lib/apt/lists/ contains metadata files (ignoring partial)
   // On a completely clean system, the directory only contains lock and partial/
-  std::string cmd = "find /var/lib/apt/lists -maxdepth 1 -type f | grep -v 'lock' | wc -l";
+  std::string cmd =
+      "find /var/lib/apt/lists -maxdepth 1 -type f | grep -v 'lock' | wc -l";
   std::string output = exec_command(cmd.c_str());
   try {
     int count = std::stoi(output);
@@ -31,12 +32,17 @@ bool DpkgAptManager::is_synced() {
 }
 
 bool DpkgAptManager::sync_system() {
-  std::cout << "[INFO] Synchronizing Debian package repositories (apt update)..." << std::endl;
-  uli::runtime::BlackBox::log("PM_SYNC: Synchronizing Debian repositories (apt-get update)");
+  std::cout
+      << "[INFO] Synchronizing Debian package repositories (apt update)..."
+      << std::endl;
+  uli::runtime::BlackBox::log(
+      "PM_SYNC: Synchronizing Debian repositories (apt-get update)");
   int ret = std::system("apt-get update >/dev/null 2>&1");
   bool success = (ret == 0);
-  if (!success) uli::runtime::BlackBox::log("PM_SYNC_FAIL: apt-get update failed");
-  else uli::runtime::BlackBox::log("PM_SYNC_SUCCESS");
+  if (!success)
+    uli::runtime::BlackBox::log("PM_SYNC_FAIL: apt-get update failed");
+  else
+    uli::runtime::BlackBox::log("PM_SYNC_SUCCESS");
   return success;
 }
 
@@ -114,13 +120,19 @@ bool DpkgAptManager::load_translation_from_string(const std::string &yaml_str) {
 
 static int detect_debian_version() {
   std::ifstream file("/etc/os-release");
-  if (!file.is_open()) return 12; // Default to bookworm
+  if (!file.is_open())
+    return 12; // Default to bookworm
   std::string line;
   while (std::getline(file, line)) {
     if (line.find("VERSION_ID=") == 0) {
       std::string val = line.substr(11);
-      if (!val.empty() && val[0] == '"') val = val.substr(1, val.size() - 2);
-      try { return std::stoi(val); } catch (...) { return 12; }
+      if (!val.empty() && val[0] == '"')
+        val = val.substr(1, val.size() - 2);
+      try {
+        return std::stoi(val);
+      } catch (...) {
+        return 12;
+      }
     }
   }
   return 12;
@@ -133,39 +145,54 @@ std::string DpkgAptManager::build_install_command(
   bool is_bootstrap = (std::getenv("ULI_BOOTSTRAP") != nullptr);
   if (is_bootstrap) {
     int version = detect_debian_version();
-    std::string suite = (std::getenv("ULI_DEBIAN_SUITE") ? std::string(std::getenv("ULI_DEBIAN_SUITE")) : "trixie");
-    std::string mirror = (std::getenv("ULI_DEBIAN_MIRROR") ? std::string(std::getenv("ULI_DEBIAN_MIRROR")) : "http://deb.debian.org/debian/");
-    
+    std::string suite = (std::getenv("ULI_DEBIAN_SUITE")
+                             ? std::string(std::getenv("ULI_DEBIAN_SUITE"))
+                             : "trixie");
+    std::string mirror = (std::getenv("ULI_DEBIAN_MIRROR")
+                              ? std::string(std::getenv("ULI_DEBIAN_MIRROR"))
+                              : "http://deb.debian.org/debian/");
+
     // Phase 1: Bootstrap the base system (Creates the directory structure)
     cmd << "debootstrap " << suite << " /mnt " << mirror << " && ";
-    
-    // Phase 2: Setup networking (DNS) for the chroot (MUST happen after debootstrap creates /etc)
+
+    // Phase 2: Setup networking (DNS) for the chroot (MUST happen after
+    // debootstrap creates /etc)
     cmd << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
+
+    // Phase 2.5: Mount API filesystems (Required for apt/dpkg terminal logging
+    // and kernel interaction)
+    cmd << "mount -t proc /proc /mnt/proc && ";
+    cmd << "mount -t sysfs /sys /mnt/sys && ";
+    cmd << "mount --bind /dev /mnt/dev && ";
+    cmd << "mount --bind /dev/pts /mnt/dev/pts && ";
+    cmd << "mount --bind /run /mnt/run && ";
 
     // Phase 3: Setup policy-rc.d to prevent service hangs during install
     cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
     cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
 
-    // Phase 4: Enable additional repository components (contrib non-free non-free-firmware)
-    // Supports DEB822 (Debian 13+) and Traditional (Debian 12-) formats
+    // Phase 4: Enable additional repository components (contrib non-free
+    // non-free-firmware) Supports DEB822 (Debian 13+) and Traditional (Debian
+    // 12-) formats
     cmd << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
-        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
+        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free "
+           "non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
         << "fi; "
         << "if [ -f /mnt/etc/apt/sources.list ]; then "
-        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" /mnt/etc/apt/sources.list; "
+        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" "
+           "/mnt/etc/apt/sources.list; "
         << "fi && ";
 
-    // Phase 4: chroot and install extra packages
+    // Phase 5: chroot and install extra packages
     // If version >= 13, use 'apt', else 'apt-get'
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
-    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin << " update && ";
-    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin << " install -y";
+    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin
+        << " update && ";
+    cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin
+        << " install -y";
 
     // We'll append the packages later in the loop
-
-    // Termination: We'll need to remove the policy file at the end.
-    // However, the base class appends packages to this string.
-    // I will refactor the loop to handle the cleanup.
+    BlackBox::log("DPKG_APT: Bootstrap command chain initialized");
   } else {
     cmd << config.install_cmd;
   }
@@ -175,9 +202,12 @@ std::string DpkgAptManager::build_install_command(
   }
 
   if (is_bootstrap) {
-    // Cleanup Phase (Ensures policy-rc.d is removed even if installation fails is complex here, 
-    // but we add it to the success chain)
-    cmd << " && rm -f /mnt/usr/sbin/policy-rc.d";
+    // Phase 6: Cleanup Phase
+    // 1. Remove policy-rc.d
+    // 2. Lazy unmount API filesystems to avoid 'device is busy' errors during
+    // cleanup
+    cmd << " && rm -f /mnt/usr/sbin/policy-rc.d"
+        << " && umount -l /mnt/dev/pts /mnt/dev /mnt/proc /mnt/sys /mnt/run";
   }
 
   return cmd.str();
