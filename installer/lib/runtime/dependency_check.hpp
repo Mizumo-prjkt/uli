@@ -37,9 +37,6 @@ public:
         // Distro specific
         if (distro == "Arch Linux") {
             critical.push_back("genfstab");
-            critical.push_back("pacstrap");
-        } else if (distro == "Debian") {
-            critical.push_back("debootstrap");
         }
 
         std::string missing = "";
