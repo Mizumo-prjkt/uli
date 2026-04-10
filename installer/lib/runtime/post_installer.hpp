@@ -245,12 +245,28 @@ private:
             }
         } else if (os_distro == "Debian") {
             if (state.bootloader == "grub") {
+                // Ensure we use the correct metapackage for 64-bit EFI
+                std::string pkg = (state.bootloader_target == "x86_64-efi") ? "grub-efi-amd64" : "grub-efi-ia32";
                 chroot.execute("apt-get update");
-                chroot.execute("apt-get install -y grub-efi efibootmgr");
-                chroot.execute("grub-install --target=" + state.bootloader_target);
-                chroot.execute("update-grub");
+                if (chroot.execute("apt-get install -y " + pkg + " efibootmgr") != 0) return false;
+                
+                std::string grub_cmd = "grub-install --target=" + state.bootloader_target + 
+                                       " --bootloader-id='" + state.bootloader_id + "'" +
+                                       " --efi-directory=" + state.efi_directory + 
+                                       " --recheck --removable";
+                
+                BlackBox::log("Executing: " + grub_cmd);
+                if (chroot.execute(grub_cmd) != 0) {
+                    BlackBox::log("ERROR: grub-install failed");
+                    return false;
+                }
+                if (chroot.execute("update-grub") != 0) {
+                    BlackBox::log("ERROR: update-grub failed");
+                    return false;
+                }
             }
-        } else {
+        }
+ else {
             // Arch Linux
             if (state.bootloader == "systemd-boot") {
                 chroot.execute("bootctl install");

@@ -646,7 +646,45 @@ public:
     return UIDualPaneSelect::show_package_search(pm.get(), current_pkgs,
                                                  state.manual_mappings);
   }
+
+  // Ensures EFI partitions follow distro standards (e.g. /boot/efi for Debian)
+  static void normalize_efi_mounts(MenuState &state,
+                                   const std::string &os_distro) {
+    if (os_distro != "Debian")
+      return;
+
+    BlackBox::log("ENTER normalize_efi_mounts for Debian");
+    bool primary_efi_found = false;
+
+    // We iterate to find the first vfat intended for EFI
+    for (auto &p : state.partitions) {
+      if (p.fs_type == "vfat") {
+        if (!primary_efi_found) {
+          // This is the chosen authority
+          if (p.mount_point != "/boot/efi") {
+            BlackBox::log("Overriding " + p.device_path + " mount point: " +
+                           p.mount_point + " -> /boot/efi");
+            p.mount_point = "/boot/efi";
+          }
+          state.efi_directory = "/boot/efi";
+          primary_efi_found = true;
+        } else {
+          // This is a secondary vfat, it shouldn't be /boot/efi
+          if (p.mount_point == "/boot/efi" || p.mount_point == "/boot") {
+            BlackBox::log("Stripping duplicate/conflicting EFI mount from " +
+                           p.device_path);
+            p.mount_point = ""; // Strip to avoid conflicts
+          }
+        }
+      }
+    }
+
+    if (!primary_efi_found) {
+      BlackBox::log("WARNING: No vfat/EFI partition found for Debian target.");
+    }
+  }
 };
+
 
 } // namespace runtime
 } // namespace uli

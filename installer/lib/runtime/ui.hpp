@@ -507,7 +507,11 @@ public:
 
   // Static helper to execute the final installation sequence
   static void execute_install(const std::string &os_distro, MenuState &state) {
+    // 0. Normalize partition standards (Authority Transfer)
+    uli::runtime::UIHandler::normalize_efi_mounts(state, os_distro);
+
     // 0. Preliminary Dependency Check
+
     auto dep_result =
         uli::runtime::DependencyChecker::check_essentials(os_distro);
     if (!dep_result.success) {
