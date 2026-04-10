@@ -464,8 +464,6 @@ public:
   // Mounts all partitions in the correct order specifically for Arch Linux
   static bool mount_all_partitions(MenuState &state,
                                    const std::string &distro) {
-    if (distro != "Arch Linux")
-      return true;
 
     // 1. Initial Cleanup: Ensure /mnt is fresh and free
     uli::partitioner::format::MountWrapper::swapoff_all();
@@ -511,15 +509,31 @@ public:
         }
       }
     }
+
+    // After physical mounts, overlay virtual filesystems for chroot
+    if (!mount_api_systems("/mnt")) {
+        Warn::print_error("Failed to mount virtual API filesystems to /mnt");
+        return false;
+    }
+
     return true;
   }
 
   // Safely unmounts everything to prevent corrupted mount states on failure
   static void cleanup_mounts(MenuState &state, const std::string &distro) {
-    if (distro != "Arch Linux")
-      return;
     uli::partitioner::format::MountWrapper::swapoff_all();
     uli::partitioner::format::MountWrapper::umount_recursive("/mnt");
+  }
+
+  // Mounts virtual filesystems needed for chroot (proc, sys, dev)
+  static bool mount_api_systems(const std::string &root) {
+    bool ok = true;
+    ok &= uli::partitioner::format::MountWrapper::mount("-t proc /proc", root + "/proc");
+    ok &= uli::partitioner::format::MountWrapper::mount("-t sysfs /sys", root + "/sys");
+    ok &= uli::partitioner::format::MountWrapper::mount("--bind /dev", root + "/dev");
+    ok &= uli::partitioner::format::MountWrapper::mount("--bind /dev/pts", root + "/dev/pts");
+    ok &= uli::partitioner::format::MountWrapper::mount("--bind /run", root + "/run");
+    return ok;
   }
 
   // Ensures essential packages are present for a bootable Arch system
