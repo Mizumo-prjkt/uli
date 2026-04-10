@@ -566,7 +566,7 @@ public:
     return final_list;
   }
 
-  // Generates fstab for the target system using genfstab (Arch Specific)
+  // Generates fstab for the target system using genfstab
   static bool generate_fstab(const std::string &mount_point) {
     std::cout << "[fstab] Generating /etc/fstab for target " << mount_point
               << "..." << std::endl;

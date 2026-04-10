@@ -136,20 +136,39 @@ std::string DpkgAptManager::build_install_command(
     std::string suite = (std::getenv("ULI_DEBIAN_SUITE") ? std::string(std::getenv("ULI_DEBIAN_SUITE")) : "trixie");
     std::string mirror = (std::getenv("ULI_DEBIAN_MIRROR") ? std::string(std::getenv("ULI_DEBIAN_MIRROR")) : "http://deb.debian.org/debian/");
     
-    // Phase 1: Bootstrap the base system
+    // Phase 1: Setup networking (DNS) for the chroot
+    cmd << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
+    
+    // Phase 2: Bootstrap the base system
     cmd << "debootstrap " << suite << " /mnt " << mirror << " && ";
     
-    // Phase 2: chroot and install extra packages
+    // Phase 3: Setup policy-rc.d to prevent service hangs during install (Post-bootstrap)
+    cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
+    cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
+
+    // Phase 4: chroot and install extra packages
     // If version >= 13, use 'apt', else 'apt-get'
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
     cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin << " update && ";
     cmd << "DEBIAN_FRONTEND=noninteractive chroot /mnt " << pm_bin << " install -y";
+
+    // We'll append the packages later in the loop
+
+    // Termination: We'll need to remove the policy file at the end.
+    // However, the base class appends packages to this string.
+    // I will refactor the loop to handle the cleanup.
   } else {
     cmd << config.install_cmd;
   }
 
   for (const auto &pkg : abstract_packages) {
     cmd << " " << translate_package(pkg);
+  }
+
+  if (is_bootstrap) {
+    // Cleanup Phase (Ensures policy-rc.d is removed even if installation fails is complex here, 
+    // but we add it to the success chain)
+    cmd << " && rm -f /mnt/usr/sbin/policy-rc.d";
   }
 
   return cmd.str();

@@ -24,10 +24,10 @@ public:
     };
 
     static bool try_self_heal(const std::string& tool, const std::string& distro) {
-        if (distro == "Debian" && tool == "debootstrap") {
-            BlackBox::log("SELF_HEAL: Attempting to install debootstrap on host...");
+        if (distro == "Debian" && (tool == "debootstrap" || tool == "arch-install-scripts")) {
+            BlackBox::log("SELF_HEAL: Attempting to install " + tool + " on host...");
             std::system("apt-get update > /dev/null 2>&1");
-            return (std::system("apt-get install -y debootstrap > /dev/null 2>&1") == 0);
+            return (std::system(("apt-get install -y " + tool + " > /dev/null 2>&1").c_str()) == 0);
         }
         return false;
     }
@@ -45,9 +45,12 @@ public:
 
         // Distro specific
         if (distro == "Debian") {
-            if (!has_binary("debootstrap")) {
-                if (!try_self_heal("debootstrap", distro)) {
-                    critical.push_back("debootstrap");
+            std::vector<std::string> deb_tools = {"debootstrap", "arch-install-scripts"};
+            for (const auto& t : deb_tools) {
+                if (!has_binary(t)) {
+                    if (!try_self_heal(t, distro)) {
+                        critical.push_back(t);
+                    }
                 }
             }
         } else if (distro == "Arch Linux") {

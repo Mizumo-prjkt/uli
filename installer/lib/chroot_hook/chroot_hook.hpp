@@ -74,8 +74,25 @@ public:
     private:
         bool prepare_mounts() {
             std::vector<std::string> virtual_fs = {"/dev", "/proc", "/sys", "/run"};
+            
+            // Read active mounts to avoid redundant binds
+            std::ifstream mounts("/proc/mounts");
+            std::string line;
+            std::vector<std::string> existing;
+            while (std::getline(mounts, line)) {
+                std::istringstream iss(line);
+                std::string dev, mnt;
+                if (iss >> dev >> mnt) existing.push_back(mnt);
+            }
+
             for (const auto& fs : virtual_fs) {
                 std::string dest = target_root + fs;
+                
+                // Skip if already mounted
+                if (std::find(existing.begin(), existing.end(), dest) != existing.end()) {
+                    continue;
+                }
+
                 std::filesystem::create_directories(dest);
                 std::string cmd = "mount --bind " + fs + " " + dest + " > /dev/null 2>&1";
                 if (std::system(cmd.c_str()) != 0) {
