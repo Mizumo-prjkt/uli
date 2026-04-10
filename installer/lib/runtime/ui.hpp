@@ -2,6 +2,8 @@
 #define ULI_RUNTIME_UI_HPP
 
 #include "../config/config_loader.hpp"
+#include "../config/persistence_manager.hpp"
+#include "process_supervisor.hpp"
 
 #include <iostream>
 #include <string>
@@ -48,6 +50,12 @@ public:
         else if (os_distro == "Alpine Linux") state.bootloader = "syslinux";
         
         // Initial underlying checks
+        if (uli::runtime::config::PersistenceManager::has_recovery()) {
+            if (DialogBox::ask_yes_no(_tr("Recovery Available"), _tr("An interrupted installation was detected. Would you like to resume with your previous settings?"))) {
+                uli::runtime::config::PersistenceManager::load_recovery(state);
+            }
+        }
+
         if (NetworkMetrics::run_diagnostics()) {
             state.network_configuration = "Connected";
         } else {
@@ -364,100 +372,100 @@ public:
 
     // Static helper to execute the final installation sequence
     static void execute_install(const std::string& os_distro, MenuState& state) {
-        DesignUI::clear_screen();
-        Warn::print_info("Installation sequence initiated for " + os_distro);
-        Warn::print_info("Target Environment: " + state.drive);
-        
-        // 1. Run the deferred format destruction layout logic
-        if (!uli::runtime::UIHandler::execute_deferred_partitions(state)) {
-            Warn::print_error("Halting Installation: Disk Format failed.");
-            return;
-        }
+        // Cache state for recovery
+        uli::runtime::config::PersistenceManager::save_recovery(state);
 
-        // 2. Mount partitions and activate swap (Arch Specific)
-        if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
-            Warn::print_error("Halting Installation: Mounting failed.");
-            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-            return;
-        }
-
-        // 3. Refine package list and build final command
-        auto final_pkgs = uli::runtime::UIHandler::refine_package_list(os_distro, state);
-        
-        std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
-        if (os_distro == "Arch Linux") pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
-        else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
-        else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
-        
-        // --- Synchronization Phase ---
-        bool sync_attempted = false;
-        if (state.force_sync) {
-            Warn::print_info("Forced synchronization requested...");
-            pm->sync_system();
-            sync_attempted = true;
-        } else if (!pm->is_synced()) {
-            Warn::print_info("Package manager requires synchronization (Keyrings/Metadata)...");
-            pm->sync_system();
-            sync_attempted = true;
-        }
-
-        std::string command = pm->build_install_command(final_pkgs);
-        std::cout << "\n[INFO] Executing Final Installation Command: " << command << std::endl;
-        BlackBox::log("EXEC_INSTALL: " + command);
-
-        // Perform actual installation with one-time retry if synchronization failed
-        int attempts = 0;
-        bool success = false;
-        while (attempts < 2) {
-            int ret = std::system(command.c_str());
-            if (ret == 0) {
-                success = true;
-                BlackBox::log("INSTALL_SUCCESS: Command returned 0");
-                break;
-            }
+        while (true) { // Hard Restart Loop
+            DesignUI::clear_screen();
+            Warn::print_info("Installation sequence initiated for " + os_distro);
+            Warn::print_info("Target Environment: " + state.drive);
+            Warn::print_info("Controls: Ctrl+U (Soft Restart), Ctrl+O (Hold Mode), Ctrl+R (Hard Restart)");
             
-            attempts++;
-            BlackBox::log("INSTALL_FAIL: Attempt " + std::to_string(attempts) + " failed with return code " + std::to_string(ret));
-            
-            if (attempts < 2 && !sync_attempted) {
-                Warn::print_warning("Installation command failed. Attempting emergency synchronization repair...");
-                pm->sync_system();
-                sync_attempted = true;
-                Warn::print_info("Retrying installation...");
-            } else {
-                break; 
+            // 1. Run the deferred format destruction layout logic
+            if (!uli::runtime::UIHandler::execute_deferred_partitions(state)) {
+                Warn::print_error("Halting Installation: Disk Format failed.");
+                return;
+            }
+
+            // 2. Mount partitions and activate swap (Arch Specific)
+            if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
+                Warn::print_error("Halting Installation: Mounting failed.");
+                uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+                return;
+            }
+
+            bool retry_packages = true;
+            while (retry_packages) { // Soft Restart Loop
+                retry_packages = false; // Default to finish
+
+                // 3. Refine package list and build final command
+                auto final_pkgs = uli::runtime::UIHandler::refine_package_list(os_distro, state);
+                
+                std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
+                if (os_distro == "Arch Linux") pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
+                else if (os_distro == "Alpine Linux") pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
+                else pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
+                
+                // --- Synchronization Phase ---
+                bool sync_attempted = false;
+                if (state.force_sync) {
+                    Warn::print_info("Forced synchronization requested...");
+                    pm->sync_system();
+                    sync_attempted = true;
+                } else if (!pm->is_synced()) {
+                    Warn::print_info("Package manager requires synchronization (Keyrings/Metadata)...");
+                    pm->sync_system();
+                    sync_attempted = true;
+                }
+
+                std::string command = pm->build_install_command(final_pkgs);
+                std::cout << "\n[INFO] Executing Final Installation Command: " << command << std::endl;
+                BlackBox::log("EXEC_INSTALL: " + command);
+
+                // Perform supervised installation
+                SupervisionResult s_res = ProcessSupervisor::execute(command);
+                
+                if (s_res == SupervisionResult::RESTART_SOFT) {
+                    Warn::print_warning("INTERRUPT: Soft Restart Requested. Redoing package installation...");
+                    retry_packages = true;
+                    continue;
+                } else if (s_res == SupervisionResult::RESTART_HARD) {
+                    Warn::print_warning("INTERRUPT: Hard Restart Requested. Redoing full installation from format stage...");
+                    uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+                    break; // Break soft loop to restart hard loop
+                } else if (s_res == SupervisionResult::FAILURE) {
+                    Warn::print_error("Installation command failed! Check logs for details.");
+                    uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+                    return;
+                }
+
+                // 4. Generate fstab (Arch Specific)
+                if (os_distro == "Arch Linux") {
+                    if (!uli::runtime::UIHandler::generate_fstab("/mnt")) {
+                        Warn::print_error("Failed to generate /etc/fstab!");
+                    }
+                }
+
+                // 5. Generate requested Locales 
+                if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
+                    Warn::print_info("Executing Locale Generation: " + state.locale_language + "." + state.locale_encoding);
+                    uli::localegen::LocaleGenerator::generate_locales(state.drive, state.locale_language, state.locale_encoding);
+                }
+
+                // 6. Finalize System Configuration (Hostname, Users, Bootloader)
+                if (!uli::runtime::PostInstaller::finalize(state, os_distro, "/mnt")) {
+                    Warn::print_error("Post-installation configuration failed! System may not be bootable.");
+                    uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+                    return;
+                }
+
+                Warn::print_info("Installation stage complete. Unmounting target...");
+                uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+                uli::runtime::config::PersistenceManager::clear_recovery();
+                Warn::print_info("All operations finished. You may now reboot.");
+                return; // Finished everything successfully
             }
         }
-
-        if (!success) {
-            Warn::print_error("Installation command failed! Check logs for details.");
-            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-            return;
-        }
-
-        // 4. Generate fstab (Arch Specific)
-        if (os_distro == "Arch Linux") {
-            if (!uli::runtime::UIHandler::generate_fstab("/mnt")) {
-                Warn::print_error("Failed to generate /etc/fstab!");
-            }
-        }
-
-        // 5. Generate requested Locales 
-        if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
-            Warn::print_info("Executing Locale Generation: " + state.locale_language + "." + state.locale_encoding);
-            uli::localegen::LocaleGenerator::generate_locales(state.drive, state.locale_language, state.locale_encoding);
-        }
-
-        // 6. Finalize System Configuration (Hostname, Users, Bootloader)
-        if (!uli::runtime::PostInstaller::finalize(state, os_distro, "/mnt")) {
-            Warn::print_error("Post-installation configuration failed! System may not be bootable.");
-            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-            return;
-        }
-
-        Warn::print_info("Installation stage complete. Unmounting target...");
-        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-        Warn::print_info("All operations finished. You may now reboot.");
     }
 };
 
