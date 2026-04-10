@@ -136,13 +136,13 @@ std::string DpkgAptManager::build_install_command(
     std::string suite = (std::getenv("ULI_DEBIAN_SUITE") ? std::string(std::getenv("ULI_DEBIAN_SUITE")) : "trixie");
     std::string mirror = (std::getenv("ULI_DEBIAN_MIRROR") ? std::string(std::getenv("ULI_DEBIAN_MIRROR")) : "http://deb.debian.org/debian/");
     
-    // Phase 1: Setup networking (DNS) for the chroot
-    cmd << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
-    
-    // Phase 2: Bootstrap the base system
+    // Phase 1: Bootstrap the base system (Creates the directory structure)
     cmd << "debootstrap " << suite << " /mnt " << mirror << " && ";
     
-    // Phase 3: Setup policy-rc.d to prevent service hangs during install (Post-bootstrap)
+    // Phase 2: Setup networking (DNS) for the chroot (MUST happen after debootstrap creates /etc)
+    cmd << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
+
+    // Phase 3: Setup policy-rc.d to prevent service hangs during install
     cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
     cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
 
