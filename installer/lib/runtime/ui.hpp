@@ -44,25 +44,29 @@ namespace runtime {
 class UIManager {
 public:
   static void start_ui(const std::string &os_distro, int debian_version = 0,
-                       const MenuState &initial_state = MenuState()) {
+                       const MenuState &initial_state = MenuState(),
+                       bool load_last_error = false) {
     MenuState state = initial_state;
-    if (state.debian_version == 0)
-      state.debian_version = debian_version;
 
-    if (os_distro == "Debian")
-      state.bootloader = "grub";
-    else if (os_distro == "Alpine Linux")
-      state.bootloader = "syslinux";
-
-    // Initial underlying checks
-    if (uli::runtime::config::PersistenceManager::has_recovery()) {
-      if (DialogBox::ask_yes_no(
-              _tr("Recovery Available"),
+    // 0. Emergency Recovery / Checkpoint Logic
+    if (load_last_error || uli::runtime::config::PersistenceManager::has_checkpoint()) {
+      bool do_recovery = load_last_error;
+      if (!do_recovery) {
+        do_recovery = DialogBox::ask_yes_no(
+              _tr("Checkpoint Detected"),
               _tr("An interrupted installation was detected. Would you like to "
-                  "resume with your previous settings?"))) {
-        uli::runtime::config::PersistenceManager::load_recovery(state);
+                  "resume where you left off?"));
+      }
+
+      if (do_recovery) {
+        if (uli::runtime::config::PersistenceManager::load_checkpoint(state)) {
+           Warn::print_info("Resuming from stage: " + state.current_stage);
+        } else {
+           Warn::print_error("Failed to load checkpoint file.");
+        }
       }
     }
+
 
     if (NetworkMetrics::run_diagnostics()) {
       state.network_configuration = "Connected";
@@ -516,8 +520,8 @@ public:
       return;
     }
 
-    // Cache state for recovery
-    uli::runtime::config::PersistenceManager::save_recovery(state);
+    // Cache state for checkpointing
+    uli::runtime::config::PersistenceManager::save_checkpoint(state);
 
     while (true) { // Hard Restart Loop
       DesignUI::clear_screen();
@@ -526,174 +530,126 @@ public:
       Warn::print_info("Controls: Ctrl+U (Soft), Ctrl+O (Hold), Ctrl+R (Hard), "
                        "Ctrl+H (Help Guide)");
 
-      // 1. Run the deferred format destruction layout logic
-      if (!uli::runtime::UIHandler::execute_deferred_partitions(state)) {
-        Warn::print_error("Halting Installation: Disk Format failed.");
-        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-        return;
+      // 1. Disk Preparation (Idempotent)
+      if (state.current_stage == "INITIAL" || state.current_stage == "START_FORMATTING") {
+        state.current_stage = "START_FORMATTING";
+        uli::runtime::config::PersistenceManager::save_checkpoint(state);
+
+        if (!uli::runtime::UIHandler::execute_deferred_partitions(state)) {
+          Warn::print_error("Halting Installation: Disk Format failed.");
+          uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+          return;
+        }
+
+        if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
+          Warn::print_error("Halting Installation: Mounting failed.");
+          uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+          return;
+        }
+
+        state.current_stage = "DISKS_PREPARED";
+        uli::runtime::config::PersistenceManager::save_checkpoint(state);
+      } else {
+        Warn::print_info("Stage DISKS_PREPARED already reached. Ensuring mounts...");
+        // Fast-path: even if disks are formatted, we must ensure they are mounted in /mnt
+        if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
+           Warn::print_error("Failed to re-assert mounts during resumption.");
+        }
       }
 
-      // 2. Mount partitions and activate swap (Arch Specific)
-      if (!uli::runtime::UIHandler::mount_all_partitions(state, os_distro)) {
-        Warn::print_error("Halting Installation: Mounting failed.");
-        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-        return;
-      }
-
-      // 2.5 Ensure arch-chroot is available for Debian installations (Premium
-      // chroot management)
+      // 2.5 Ensure arch-chroot is available
       if (os_distro == "Debian") {
-        // Since we are in debian, we use apt, not pacman lmao
         if (std::system("command -v arch-chroot > /dev/null 2>&1") != 0) {
-          Warn::print_info("arch-chroot missing. Attempting automated "
-                           "installation via host...");
-          if (std::system(
-                  "apt install arch-install-scripts > /dev/null 2>&1") != 0) {
-            Warn::print_warning(
-                "Automated installation of arch-install-scripts failed.");
-
-            std::string warn_msg =
-                "arch-chroot has failed to perform tasks because either:\n"
-                "1. You didn't install arch-install-scripts\n"
-                "2. /dev/pts and related components required are messed up\n\n"
-                "Options:\n"
-                "- [Continue] Let this executable manage mounting points (Raw "
-                "Mode).\n"
-                "  WARNING: High chance of live boot env breakage (OverlayFS "
-                "conflicts).\n"
-                "- [Abort] Exit and install arch-install-scripts manually "
-                "(Safe).";
-
-            std::vector<std::string> options = {"Continue", "Abort"};
-            if (DialogBox::ask_selection("Chroot Safety Warning", warn_msg,
-                                         options) == 0) {
-              setenv("ULI_DEBIAN_RAW_CHROOT", "1", 1);
-            } else {
-              uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-              return;
-            }
-
-          } else {
-            Warn::print_info("arch-install-scripts successfully initialized.");
+          if (std::system("apt install arch-install-scripts > /dev/null 2>&1") != 0) {
+            setenv("ULI_DEBIAN_RAW_CHROOT", "1", 1);
           }
         }
       }
 
       bool retry_packages = true;
       while (retry_packages) {  // Soft Restart Loop
-        retry_packages = false; // Default to finish
+        retry_packages = false; 
 
-        // 3. Refine package list and build final command
-        auto final_pkgs =
-            uli::runtime::UIHandler::refine_package_list(os_distro, state);
+        if (state.current_stage == "DISKS_PREPARED" || state.current_stage == "START_PACKAGES") {
+          state.current_stage = "START_PACKAGES";
+          uli::runtime::config::PersistenceManager::save_checkpoint(state);
 
-        std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
-        if (os_distro == "Arch Linux") {
-          pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
-          pm->load_translation_from_string(
-              uli::package_mgr::BUILTIN_TRANS_ARCH);
-        } else if (os_distro == "Alpine Linux") {
-          pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
-          pm->load_translation_from_string(
-              uli::package_mgr::BUILTIN_TRANS_ALPINE);
-        } else {
-          pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
-          pm->load_translation_from_string(
-              uli::package_mgr::BUILTIN_TRANS_DEBIAN);
-        }
-
-        // Enable Bootstrap mode for installer (targets /mnt)
-        setenv("ULI_BOOTSTRAP", "1", 1);
-        if (os_distro == "Debian") {
-          std::string suite =
-              (state.debian_version == 12) ? "bookworm" : "trixie";
-          setenv("ULI_DEBIAN_SUITE", suite.c_str(), 1);
-          if (!state.active_mirrors.empty() &&
-              state.active_mirrors[0] != "Default") {
-            setenv("ULI_DEBIAN_MIRROR", state.active_mirrors[0].c_str(), 1);
+          auto final_pkgs = uli::runtime::UIHandler::refine_package_list(os_distro, state);
+          std::unique_ptr<uli::package_mgr::PackageManagerInterface> pm;
+          if (os_distro == "Arch Linux") {
+            pm = std::make_unique<uli::package_mgr::alps::AlpsManager>();
+            pm->load_translation_from_string(uli::package_mgr::BUILTIN_TRANS_ARCH);
+          } else if (os_distro == "Alpine Linux") {
+            pm = std::make_unique<uli::package_mgr::apk::ApkManager>();
+            pm->load_translation_from_string(uli::package_mgr::BUILTIN_TRANS_ALPINE);
+          } else {
+            pm = std::make_unique<uli::package_mgr::DpkgAptManager>();
+            pm->load_translation_from_string(uli::package_mgr::BUILTIN_TRANS_DEBIAN);
           }
-          
-          // Pass locale settings to the package manager
-          if (!state.locale_language.empty()) {
-            setenv("ULI_LOCALE_LANG", state.locale_language.c_str(), 1);
+
+          setenv("ULI_BOOTSTRAP", "1", 1);
+          if (os_distro == "Debian") {
+            std::string suite = (state.debian_version == 12) ? "bookworm" : "trixie";
+            setenv("ULI_DEBIAN_SUITE", suite.c_str(), 1);
           }
-          if (!state.locale_encoding.empty()) {
-            setenv("ULI_LOCALE_ENCODE", state.locale_encoding.c_str(), 1);
+
+          std::string command = pm->build_install_command(final_pkgs);
+          SupervisionResult s_res;
+          if (os_distro == "Debian") {
+            int res = std::system(command.c_str());
+            s_res = (res == 0) ? SupervisionResult::SUCCESS : SupervisionResult::FAILURE;
+          } else {
+            s_res = ProcessSupervisor::execute(command);
           }
-        }
 
-
-        std::string command = pm->build_install_command(final_pkgs);
-        std::cout << "\n[INFO] Executing Final Installation Command: "
-                  << command << std::endl;
-        BlackBox::log("EXEC_INSTALL: " + command);
-
-        // Perform installation with execution engine selection
-        SupervisionResult s_res;
-        if (os_distro == "Debian") {
-          // Use RAW execution for Debian to avoid PTY deadlocks in the supervisor.
-          // This gives 100% control to the guest process but disables Ctrl+O/U.
-          Warn::print_info("Executing RAW bootstrap for Debian...");
-          int res = std::system(command.c_str());
-          s_res = (res == 0) ? SupervisionResult::SUCCESS : SupervisionResult::FAILURE;
-        } else {
-          s_res = ProcessSupervisor::execute(command);
-        }
-
-        if (s_res == SupervisionResult::RESTART_SOFT) {
-
-          Warn::print_warning("INTERRUPT: Soft Restart Requested. Redoing "
-                              "package installation...");
-          retry_packages = true;
-          continue;
-        } else if (s_res == SupervisionResult::RESTART_HARD) {
-          Warn::print_warning("INTERRUPT: Hard Restart Requested. Redoing full "
-                              "installation from format stage...");
-          uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-          break; // Break soft loop to restart hard loop
-        } else if (s_res == SupervisionResult::ABORT) {
-          Warn::print_warning(
-              "\n\033[1;31m!! INSTALLATION ABORTED BY USER !!\033[0m");
-          Warn::print_info("Cleaning up mounts and exiting...");
-          uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-          exit(0);
-        } else if (s_res == SupervisionResult::FAILURE) {
-          Warn::print_error(
-              "Installation command failed! Check logs for details.");
-          uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-          return;
-        }
-
-        // 4. Generate fstab (Required for Arch/Debian/Alpine persistence)
-        if (os_distro == "Arch Linux" || os_distro == "Debian" ||
-            os_distro == "Alpine Linux") {
-          if (!uli::runtime::UIHandler::generate_fstab("/mnt")) {
-            Warn::print_error("Failed to generate /etc/fstab!");
+          if (s_res == SupervisionResult::RESTART_SOFT) {
+            retry_packages = true;
+            continue;
+          } else if (s_res == SupervisionResult::RESTART_HARD) {
+            state.current_stage = "INITIAL"; // Reset for hard redo
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            break; 
+          } else if (s_res == SupervisionResult::ABORT) {
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            exit(0);
+          } else if (s_res == SupervisionResult::FAILURE) {
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            return;
           }
+
+          state.current_stage = "PACKAGES_INSTALLED";
+          uli::runtime::config::PersistenceManager::save_checkpoint(state);
         }
 
-        // 5. Generate requested Locales
-        if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
-          Warn::print_info("Executing Locale Generation: " +
-                           state.locale_language + "." + state.locale_encoding);
-          uli::localegen::LocaleGenerator::generate_locales(
-              state.drive, state.locale_language, state.locale_encoding);
-        }
+        // 4. Finalization (Idempotent)
+        if (state.current_stage == "PACKAGES_INSTALLED" || state.current_stage == "START_FINALIZING") {
+          state.current_stage = "START_FINALIZING";
+          uli::runtime::config::PersistenceManager::save_checkpoint(state);
 
-        // 6. Finalize System Configuration (Hostname, Users, Bootloader)
-        if (!uli::runtime::PostInstaller::finalize(state, os_distro, "/mnt")) {
-          Warn::print_error("Post-installation configuration failed! System "
-                            "may not be bootable.");
-          uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-          return;
-        }
+          if (os_distro == "Arch Linux" || os_distro == "Debian" || os_distro == "Alpine Linux") {
+            uli::runtime::UIHandler::generate_fstab("/mnt");
+          }
 
+          if (!state.locale_language.empty() && !state.locale_encoding.empty()) {
+            uli::localegen::LocaleGenerator::generate_locales(state.drive, state.locale_language, state.locale_encoding);
+          }
+
+          if (!uli::runtime::PostInstaller::finalize(state, os_distro, "/mnt")) {
+            uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
+            return;
+          }
+
+          state.current_stage = "FINALIZED";
+          uli::runtime::config::PersistenceManager::save_checkpoint(state);
+        }
+        
         Warn::print_info("Installation stage complete. Unmounting target...");
         uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
-        uli::runtime::config::PersistenceManager::clear_recovery();
+        uli::runtime::config::PersistenceManager::clear_checkpoint();
         Warn::print_info("All operations finished. You may now reboot.");
         return; // Finished everything successfully
       }
+
     }
   }
 };

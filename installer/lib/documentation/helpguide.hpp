@@ -43,7 +43,9 @@ inline void print_help_guide() {
       << "                (\033[1;31mNOT RECOMMENDED\033[0m: Automator scaling "
          "will be unpredictable)\n"
       << "  --unattended  Enables non-interactive, automatic processing of the "
-         "configuration.\n\n"
+         "configuration.\n"
+      << "  --load-last-error Resumes the installation from the last saved "
+         "checkpoint in /tmp.\n\n"
 #ifdef ULI_DEBUG_MODE
       << "Debug Options:\n"
       << "  --debug-mode  Enables test simulation mode.\n"

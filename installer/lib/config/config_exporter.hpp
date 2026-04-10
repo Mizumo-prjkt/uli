@@ -25,7 +25,9 @@ public:
         YAML::Emitter out;
         out << YAML::BeginMap;
         out << YAML::Key << "language" << YAML::Value << state.language;
+        out << YAML::Key << "current_stage" << YAML::Value << state.current_stage;
         out << YAML::Key << "keyboard_layout" << YAML::Value << state.keyboard_layout;
+
         out << YAML::Key << "drive" << YAML::Value << state.drive;
         out << YAML::Key << "bootloader" << YAML::Value << state.bootloader;
         out << YAML::Key << "bootloader_target" << YAML::Value << state.bootloader_target;

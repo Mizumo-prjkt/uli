@@ -20,7 +20,9 @@ public:
             YAML::Node config = YAML::LoadFile(filepath);
             
             if (config["language"]) state.language = config["language"].as<std::string>();
+            if (config["current_stage"]) state.current_stage = config["current_stage"].as<std::string>();
             if (config["keyboard_layout"]) state.keyboard_layout = config["keyboard_layout"].as<std::string>();
+
             if (config["drive"]) state.drive = config["drive"].as<std::string>();
             if (config["bootloader"]) state.bootloader = config["bootloader"].as<std::string>();
             if (config["bootloader_target"]) state.bootloader_target = config["bootloader_target"].as<std::string>();

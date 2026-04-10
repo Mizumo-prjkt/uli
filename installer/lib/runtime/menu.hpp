@@ -45,7 +45,9 @@ struct UserConfig {
 // Houses the central state for the archinstall-like interactive installation
 struct MenuState {
   std::string language = "English";
+  std::string current_stage = "INITIAL";
   std::string keyboard_layout = "us";
+
   std::vector<std::string> active_mirrors = {"Default"};
   std::string locale_language = "en_US";
   std::string locale_encoding = "UTF-8";

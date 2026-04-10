@@ -104,14 +104,31 @@ private:
                 }
             } else {
                 // Arch/Debian useradd
-                std::string groups = "video,audio,optical,storage";
-                if (u.is_wheel) groups += ",wheel";
+                std::string groups;
+                if (os_distro == "Debian") {
+                    // Debian standard groups
+                    groups = "video,audio,cdrom,floppy";
+                    if (u.is_wheel || u.is_sudoer) groups += ",sudo";
+                } else {
+                    // Arch Linux standard groups
+                    groups = "video,audio,optical,storage";
+                    if (u.is_wheel) groups += ",wheel";
+                }
+
                 std::string user_cmd = "useradd -m -G " + groups + " " + u.username;
                 if (chroot.execute(user_cmd) != 0) {
-                    BlackBox::log("ERROR: Failed to useradd " + u.username);
-                    return false;
+                    BlackBox::log("ERROR: Failed to useradd " + u.username + " with groups " + groups);
+                    
+                    // Fallback: try without groups if the above failed (likely missing groups in minimal base)
+                    BlackBox::log("RETRY: Attempting useradd without non-essential groups");
+                    user_cmd = "useradd -m " + u.username;
+                    if (chroot.execute(user_cmd) != 0) {
+                        BlackBox::log("ERROR: Critical failure adding user " + u.username);
+                        return false;
+                    }
                 }
             }
+
 
             // Set password
             std::string pass_cmd = "echo \"" + u.username + ":" + u.password + "\" | chpasswd -R " + root;

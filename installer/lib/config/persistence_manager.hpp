@@ -12,27 +12,28 @@ namespace config {
 
 class PersistenceManager {
 public:
-    static constexpr const char* RECOVERY_PATH = "/tmp/uli_recovery.yaml";
+    static constexpr const char* CHECKPOINT_PATH = "/tmp/uli_checkpoint.yaml";
 
-    static bool save_recovery(const MenuState& state) {
-        return ConfigExporter::save_menu_state_to_yaml(state, RECOVERY_PATH);
+    static bool save_checkpoint(const MenuState& state) {
+        return ConfigExporter::save_menu_state_to_yaml(state, CHECKPOINT_PATH);
     }
 
-    static bool load_recovery(MenuState& state) {
-        if (!std::filesystem::exists(RECOVERY_PATH)) return false;
-        return ConfigLoader::load_yaml_to_menu_state(RECOVERY_PATH, state);
+    static bool load_checkpoint(MenuState& state) {
+        if (!std::filesystem::exists(CHECKPOINT_PATH)) return false;
+        return ConfigLoader::load_yaml_to_menu_state(CHECKPOINT_PATH, state);
     }
 
-    static bool has_recovery() {
-        return std::filesystem::exists(RECOVERY_PATH);
+    static bool has_checkpoint() {
+        return std::filesystem::exists(CHECKPOINT_PATH);
     }
 
-    static void clear_recovery() {
-        if (std::filesystem::exists(RECOVERY_PATH)) {
-            std::filesystem::remove(RECOVERY_PATH);
+    static void clear_checkpoint() {
+        if (std::filesystem::exists(CHECKPOINT_PATH)) {
+            std::filesystem::remove(CHECKPOINT_PATH);
         }
     }
 };
+
 
 } // namespace config
 } // namespace runtime

@@ -62,7 +62,9 @@ int main(int argc, char *argv[]) {
                                           "--unattended",
                                           "--fetch-repos",
                                           "--force-sync",
+                                          "--load-last-error",
                                           "--version",
+
                                           "-v"};
 #else
   std::vector<std::string> valid_flags = {"--help",
@@ -71,7 +73,10 @@ int main(int argc, char *argv[]) {
                                           "--profile",
                                           "--dict",
                                           "--force-small-disk",
+                                          "--load-last-error",
                                           "--lintcheck",
+
+
                                           "--disable-builtin-dict",
                                           "--unattended",
                                           "--force-sync",
@@ -84,6 +89,9 @@ int main(int argc, char *argv[]) {
   std::string cli_profile_path = "";
   bool run_lint = false;
   bool disable_builtin_dict = false;
+  bool load_last_error = false;
+
+
 
   if (!bootargs.distro_override.empty()) {
     if (bootargs.distro_override == "debian") {
@@ -189,7 +197,10 @@ int main(int argc, char *argv[]) {
       bootargs.unattended = true;
     } else if (arg == "--force-sync") {
       bootargs.force_sync = true;
+    } else if (arg == "--load-last-error") {
+      load_last_error = true;
 #ifdef ULI_DEBUG_MODE
+
     } else if (arg == "--fetch-repos") {
       uli::runtime::TestSimulation::get_config().fetch_repos = true;
 #endif
@@ -472,10 +483,12 @@ int main(int argc, char *argv[]) {
     preloaded_state.force_sync |= bootargs.force_sync;
 
     uli::runtime::UIManager::start_ui(distro_name, detected_debian_version,
-                                      preloaded_state);
+                                      preloaded_state, load_last_error);
+
   } else {
     std::cout << "\n[INFO] Unattended Mode sequence initiated. Processing "
                  "config instructions automatically.\n";
+
 
     uli::runtime::MenuState preloaded_state;
     std::string final_profile = cli_profile_path;
