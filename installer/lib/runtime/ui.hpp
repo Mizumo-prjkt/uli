@@ -602,6 +602,9 @@ public:
           if (os_distro == "Debian") {
             std::string suite = (state.debian_version == 12) ? "bookworm" : "trixie";
             setenv("ULI_DEBIAN_SUITE", suite.c_str(), 1);
+            if (!state.active_mirrors.empty() && state.active_mirrors[0] != "Default") {
+              setenv("ULI_DEBIAN_MIRROR", state.active_mirrors[0].c_str(), 1);
+            }
           }
 
           std::string command = pm->build_install_command(final_pkgs);

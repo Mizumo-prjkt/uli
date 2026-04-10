@@ -110,11 +110,7 @@ private:
         bool show_classic = false;
         bool show_deb822 = false;
 
-        if (false) {
-            show_classic = true;
-            show_deb822 = false;
-        } else {
-            // Debian
+        if (os_distro == "Debian") {
             if (ver == 0) {
                 // Could not determine version — offer both
                 show_classic = true;

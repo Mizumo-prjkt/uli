@@ -51,19 +51,41 @@ bool DpkgAptManager::configure_mirrors(
   if (mirror_urls.empty())
     return true;
 
-  if (mirror_urls.size() == 1 &&
-      (mirror_urls[0] == "Default" ||
-       mirror_urls[0] == "http://deb.debian.org/debian/")) {
-    return true;
+  bool is_bootstrap = (std::getenv("ULI_BOOTSTRAP") != nullptr);
+  std::string target_prefix = is_bootstrap ? "/mnt" : "";
+  std::string suite = (std::getenv("ULI_DEBIAN_SUITE") ? std::getenv("ULI_DEBIAN_SUITE") : "bookworm");
+
+  std::vector<std::string> verified_mirrors;
+  for (const auto &url : mirror_urls) {
+    if (url == "Default") continue;
+    
+    // Connectivity check
+    std::string check_cmd = "curl -sfL --connect-timeout 5 " + url + "/dists/" + suite + "/Release >/dev/null 2>&1";
+    if (std::system(check_cmd.c_str()) == 0) {
+      verified_mirrors.push_back(url);
+    } else {
+      std::cerr << "[WARN] Mirror " << url << " is unreachable or invalid for suite " << suite << ". Skipping." << std::endl;
+    }
   }
+
+  if (verified_mirrors.empty()) {
+    std::cerr << "[INFO] Using default Debian mirror (deb.debian.org)." << std::endl;
+    verified_mirrors.push_back("http://deb.debian.org/debian/");
+  }
+
+  // Backup existing configurations
+  std::string backup_cmd = "cd " + target_prefix + "/etc/apt && " +
+                           "[ -f sources.list ] && cp -n sources.list sources.list.old; " +
+                           "[ -f sources.list.d/debian.sources ] && cp -n sources.list.d/debian.sources sources.list.d/debian.oldsource; " +
+                           "true";
+  std::system(backup_cmd.c_str());
 
   std::string list_replace = "";
   std::string sources_replace = "";
 
-  for (size_t i = 0; i < mirror_urls.size(); ++i) {
-    std::string safe_url = mirror_urls[i];
-    if (safe_url.back() != '/')
-      safe_url += "/";
+  for (size_t i = 0; i < verified_mirrors.size(); ++i) {
+    std::string safe_url = verified_mirrors[i];
+    if (safe_url.back() != '/') safe_url += "/";
 
     if (i > 0) {
       list_replace += "\\n";
@@ -73,23 +95,22 @@ bool DpkgAptManager::configure_mirrors(
     sources_replace += safe_url;
   }
 
-  // Replace standard Debian repositories natively across formats
-  std::string list_sed =
-      "sed -i -e 's|^\\(.*\\)http://deb.debian.org/debian/\\(.*\\)|" +
-      list_replace +
-      "|g' "
-      "/etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null";
+  // Apply changes to sources.list (Classic)
+  std::string list_sed = "sed -i -e 's|^\\(.*\\)http://deb.debian.org/debian/\\(.*\\)|" +
+                         list_replace + "|g' " + target_prefix + "/etc/apt/sources.list 2>/dev/null";
 
+  // Apply changes to debian.sources (DEB822)
   std::string sources_sed = "sed -i -e 's|http://deb.debian.org/debian/|" +
-                            sources_replace +
-                            "|g' "
-                            "/etc/apt/sources.list.d/*.sources 2>/dev/null";
+                            sources_replace + "|g' " + target_prefix + "/etc/apt/sources.list.d/*.sources 2>/dev/null";
 
-  int ret1 = std::system(list_sed.c_str());
-  int ret2 = std::system(sources_sed.c_str());
+  std::system(list_sed.c_str());
+  std::system(sources_sed.c_str());
 
-  // We optionally run apt-get update to fetch from new mirrors immediately
-  std::system("apt-get update >/dev/null 2>&1");
+  if (is_bootstrap) {
+    std::system("chroot /mnt apt-get update >/dev/null 2>&1");
+  } else {
+    std::system("apt-get update >/dev/null 2>&1");
+  }
 
   return true;
 }
@@ -194,15 +215,38 @@ std::string DpkgAptManager::build_install_command(
         << "mountpoint -q /mnt/run || mount --bind /run /mnt/run && "
         << "rm -f /mnt/dev/ptmx && ln -s pts/ptmx /mnt/dev/ptmx && ";
 
-    // Phase 5: Enable additional repository components
-    cmd << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
-        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free "
-           "non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
+    // Phase 5: Enable additional repository components (contrib/non-free) + Security
+    cmd << "DEBUG_MIRROR=\"" << mirror << "\"; "
+        << "if ! curl -sfL --connect-timeout 10 \"${DEBUG_MIRROR}/dists/" << suite << "/Release\" >/dev/null; then "
+        << "  echo '[ERROR] Primary mirror unreachable. Connectivity check failed.'; "
+        << "  echo '[INFO] Fallback to deb.debian.org...'; "
+        << "  DEBUG_MIRROR=\"http://deb.debian.org/debian/\"; "
+        << "  if ! curl -sfL --connect-timeout 10 \"${DEBUG_MIRROR}/dists/" << suite << "/Release\" >/dev/null; then "
+        << "    echo '[FATAL] Total connectivity failure. No working mirrors found.'; "
+        << "    echo '[HINT] Check your internet connection. You can resume with --load-last-error.'; "
+        << "    exit 1; "
+        << "  fi; "
         << "fi; "
-        << "if [ -f /mnt/etc/apt/sources.list ]; then "
-        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" "
-           "/mnt/etc/apt/sources.list; "
-        << "fi && ";
+        // Backups
+        << "[ -f /mnt/etc/apt/sources.list ] && cp -n /mnt/etc/apt/sources.list /mnt/etc/apt/sources.list.old; "
+        << "[ -f /mnt/etc/apt/sources.list.d/debian.sources ] && cp -n /mnt/etc/apt/sources.list.d/debian.sources /mnt/etc/apt/sources.list.d/debian.oldsource; "
+        // Injection
+        << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
+        << "  sed -i \"s|http://deb.debian.org/debian/|${DEBUG_MIRROR}|g\" /mnt/etc/apt/sources.list.d/debian.sources; "
+        << "  sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
+        // Add official security repo to deb822
+        << "  if ! grep -q 'security.debian.org' /mnt/etc/apt/sources.list.d/debian.sources; then "
+        << "    printf \"\\nTypes: deb\\nURIs: http://security.debian.org/debian-security\\nSuites: " << suite << "-security\\nComponents: main contrib non-free non-free-firmware\\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\\n\" >> /mnt/etc/apt/sources.list.d/debian.sources; "
+        << "  fi; "
+        << "elif [ -f /mnt/etc/apt/sources.list ]; then "
+        << "  if [ \"" << version << "\" -ge 13 ]; then echo '[WARN] debian.sources missing, falling back to classic sources.list'; fi; "
+        << "  sed -i \"s|http://deb.debian.org/debian/|${DEBUG_MIRROR}|g\" /mnt/etc/apt/sources.list; "
+        << "  sed -i \"s/main$/main contrib non-free non-free-firmware/\" /mnt/etc/apt/sources.list; "
+        // Add official security repo to classic
+        << "  if ! grep -q 'security.debian.org' /mnt/etc/apt/sources.list; then "
+        << "    echo \"deb http://security.debian.org/debian-security " << suite << "-security main contrib non-free non-free-firmware\" >> /mnt/etc/apt/sources.list; "
+        << "  fi; "
+        << "else echo '[WARN] No APT sources found to patch!'; fi && ";
 
     // Phase 6: Consolidated Staged chroot Execution (Stage 1: Base/zstd ->
     // Stage 2: User)
