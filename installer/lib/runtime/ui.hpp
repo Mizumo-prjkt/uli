@@ -611,7 +611,16 @@ public:
               state.active_mirrors[0] != "Default") {
             setenv("ULI_DEBIAN_MIRROR", state.active_mirrors[0].c_str(), 1);
           }
+          
+          // Pass locale settings to the package manager
+          if (!state.locale_language.empty()) {
+            setenv("ULI_LOCALE_LANG", state.locale_language.c_str(), 1);
+          }
+          if (!state.locale_encoding.empty()) {
+            setenv("ULI_LOCALE_ENCODE", state.locale_encoding.c_str(), 1);
+          }
         }
+
 
         std::string command = pm->build_install_command(final_pkgs);
         std::cout << "\n[INFO] Executing Final Installation Command: "

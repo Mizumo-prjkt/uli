@@ -152,17 +152,26 @@ std::string DpkgAptManager::build_install_command(
                               ? std::string(std::getenv("ULI_DEBIAN_MIRROR"))
                               : "http://deb.debian.org/debian/");
 
-    // Phase 1: Bootstrap the base system (Include locales and ca-certs for early normalization)
-    cmd << "debootstrap --include=locales,ca-certificates " << suite << " /mnt " << mirror << " && ";
+    // Phase 1: Bootstrap the base system (Include kernel and critical tools early)
+    // Moving linux-image, linux-headers, and initramfs-tools here ensures they are handled during base system logic
+    cmd << "debootstrap --include=locales,ca-certificates,initramfs-tools,linux-image-amd64,linux-headers-amd64 " 
+        << suite << " /mnt " << mirror << " && ";
 
-    // Phase 2: Setup networking (DNS) for the chroot (MUST happen after debootstrap creates /etc)
-    // We explicitly check if resolv.conf is a broken symlink (common DNS issue)
+    // Phase 2: Setup networking (DNS) for the chroot
     cmd << "if [ -L /mnt/etc/resolv.conf ] && [ ! -e /mnt/etc/resolv.conf ]; then rm -f /mnt/etc/resolv.conf; fi; "
         << "cp /etc/resolv.conf /mnt/etc/resolv.conf && ";
 
-    // Phase 3: Setup policy-rc.d to prevent service hangs during install
+    // Phase 3: Setup policy-rc.d
     cmd << "printf \"#!/bin/sh\\nexit 101\\n\" > /mnt/usr/sbin/policy-rc.d && ";
     cmd << "chmod +x /mnt/usr/sbin/policy-rc.d && ";
+
+    // Phase 4: Configure Locales persistence (Dynamic based on user selection)
+    std::string locale_lang = (std::getenv("ULI_LOCALE_LANG") ? std::string(std::getenv("ULI_LOCALE_LANG")) : "en_US");
+    std::string locale_enc = (std::getenv("ULI_LOCALE_ENCODE") ? std::string(std::getenv("ULI_LOCALE_ENCODE")) : "UTF-8");
+    std::string full_locale = locale_lang + "." + locale_enc;
+
+    cmd << "echo 'LANG=" << full_locale << "' > /mnt/etc/default/locale && "
+        << "sed -i 's/^# " << full_locale << " " << locale_enc << "/" << full_locale << " " << locale_enc << "/' /mnt/etc/locale.gen && ";
 
     // Check if we should use arch-chroot or rawdog it
     bool raw_chroot = (std::getenv("ULI_DEBIAN_RAW_CHROOT") != nullptr && 
@@ -170,7 +179,6 @@ std::string DpkgAptManager::build_install_command(
 
     if (raw_chroot) {
         uli::runtime::BlackBox::log("DPKG_APT: Using RAW manual mounts (FALLBACK MODE)");
-        // Phase 2.5: Manual API mounts (Fallback only!)
         cmd << "mount -t proc /proc /mnt/proc && "
             << "mount -t sysfs /sys /mnt/sys && "
             << "mount --bind /dev /mnt/dev && "
@@ -179,7 +187,7 @@ std::string DpkgAptManager::build_install_command(
             << "rm -f /mnt/dev/ptmx && ln -s pts/ptmx /mnt/dev/ptmx && ";
     }
 
-    // Phase 4: Enable additional repository components
+    // Phase 5: Enable additional repository components
     cmd << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
         << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
         << "fi; "
@@ -187,21 +195,18 @@ std::string DpkgAptManager::build_install_command(
         << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" /mnt/etc/apt/sources.list; "
         << "fi && ";
 
-    // Phase 4.5 & 5: Locale generation and Package installation
+    // Phase 6: Consolidated Chroot Execution (ONE session for Locales -> Update -> Install)
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
-    std::string env = "DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8";
-    
-    if (!raw_chroot) {
-        cmd << "arch-chroot /mnt /bin/bash -c \"" << env << " locale-gen en_US.UTF-8\" && "
-            << "arch-chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " update\" && "
-            << "arch-chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " install -y";
-    } else {
-        cmd << "chroot /mnt /bin/bash -c \"" << env << " locale-gen en_US.UTF-8\" && "
-            << "chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " update\" && "
-            << "chroot /mnt /bin/bash -c \"" << env << " " << pm_bin << " install -y";
-    }
+    std::string env = "DEBIAN_FRONTEND=noninteractive LANG=" + full_locale;
+    std::string chroot_tool = raw_chroot ? "chroot" : "arch-chroot";
 
-    uli::runtime::BlackBox::log("DPKG_APT: Bootstrap command chain initialized (standard)");
+    cmd << chroot_tool << " /mnt /bin/bash -c \"" << env << " locale-gen " << full_locale << " && "
+        << env << " " << pm_bin << " update && "
+        << env << " " << pm_bin << " install -y";
+
+
+    uli::runtime::BlackBox::log("DPKG_APT: Consolidated bootstrap command chain initialized");
+
 
 
   } else {
