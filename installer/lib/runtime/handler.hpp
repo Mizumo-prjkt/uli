@@ -34,7 +34,8 @@ namespace runtime {
 class UIHandler {
 public:
   // Execute Disk Selection returning string target
-  static std::string handle_disk_configuration(MenuState &state) {
+  static std::string handle_disk_configuration(MenuState &state, const std::string& os_distro) {
+
     while (true) {
       Warn::print_info("Analyzing physical storage devices...");
       std::vector<uli::partitioner::DiskInfo> disks =
@@ -92,9 +93,10 @@ public:
           if (ex_sel == 0)
             return selected_disk;
           if (ex_sel == 1) {
-            ManualPartitionWizard::start(selected_disk, state, true);
+            ManualPartitionWizard::start(selected_disk, state, os_distro, true);
             return selected_disk;
           }
+
           if (ex_sel == 2) {
             state.partitions.clear();
           } else {
@@ -182,7 +184,8 @@ public:
           PartitionConfig boot_p;
           boot_p.part_num = pnum++;
           boot_p.fs_type = "vfat";
-          boot_p.mount_point = "/boot";
+          boot_p.mount_point = (os_distro == "Debian") ? "/boot/efi" : "/boot";
+
           boot_p.type_code = "ef00";
           boot_p.size_cmd = "+1G";
           boot_p.is_deferred = true;
@@ -355,15 +358,16 @@ public:
               confirm_choices, preview_banner);
           if (confirm_sel == 0) {
             state = temp_state;
-            ManualPartitionWizard::start(selected_disk, state, true);
+            ManualPartitionWizard::start(selected_disk, state, os_distro, true);
             return selected_disk;
           } else {
             continue;
           }
         } else if (part_sel == 2) {
-          ManualPartitionWizard::start(selected_disk, state);
+          ManualPartitionWizard::start(selected_disk, state, os_distro);
           return selected_disk;
         }
+
       }
     }
   }

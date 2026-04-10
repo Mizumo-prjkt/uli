@@ -97,7 +97,8 @@ public:
   }
 
   static void start(const std::string &disk_path, MenuState &state,
-                    bool resume = false) {
+                    const std::string& os_distro, bool resume = false) {
+
     if (!resume) {
       std::vector<std::string> init_choices = {
           _tr("Purge Target Fully (Zap GPT & Formats)"),
@@ -377,7 +378,8 @@ public:
         cfg.device_path = disk_path; // Master target disk reference
 
         if (fs_type == "vfat")
-          cfg.mount_point = "/boot";
+          cfg.mount_point = (os_distro == "Debian") ? "/boot/efi" : "/boot";
+
         else if (fs_type == "swap")
           cfg.mount_point = "[SWAP]";
         else if (part_num == 1 || (part_num == 2 && type_code != "ef00"))

@@ -280,7 +280,7 @@ public:
         if (res != -1)
           state.locale_encoding = encodes[res];
       } else if (action == "DRIVE") { // Drive Configuration
-        std::string target = UIHandler::handle_disk_configuration(state);
+        std::string target = uli::runtime::UIHandler::handle_disk_configuration(state, os_distro);
         if (!target.empty())
           state.drive = target;
       } else if (action == "BOOT") { // Bootloader
