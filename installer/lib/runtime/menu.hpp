@@ -29,8 +29,14 @@ struct PartitionConfig {
   int part_num = 0;
 
   // Helper to resolve the actual partition node (e.g., sda1 or nvme0n1p1)
-  std::string get_real_device_path() const {
+  // parent_drive should be the base disk (e.g. /dev/sda)
+  std::string get_real_device_path(const std::string& parent_drive = "") const {
     if (device_path.empty() || part_num <= 0) return device_path;
+
+    // If device_path is already a specific partition (different from parent), don't resolve again
+    if (!parent_drive.empty() && device_path != parent_drive) {
+        return device_path;
+    }
 
     // Check if device ends in a digit (e.g. nvme0n1, mmcblk0)
     // In these cases, partitions are suffixed with 'p'
@@ -42,6 +48,7 @@ struct PartitionConfig {
     // Standard SATA/IDE (e.g. sda, sdb) just append number
     return device_path + std::to_string(part_num);
   }
+
 };
 
 

@@ -34,7 +34,8 @@ namespace runtime {
 class UIHandler {
 public:
   // Execute Disk Selection returning string target
-  static std::string handle_disk_configuration(MenuState &state, const std::string& os_distro) {
+  static std::string handle_disk_configuration(MenuState &state,
+                                               const std::string &os_distro) {
 
     while (true) {
       Warn::print_info("Analyzing physical storage devices...");
@@ -367,7 +368,6 @@ public:
           ManualPartitionWizard::start(selected_disk, state, os_distro);
           return selected_disk;
         }
-
       }
     }
   }
@@ -494,7 +494,7 @@ public:
               });
 
     for (const auto &p : sorted_parts) {
-      std::string real_path = p.get_real_device_path();
+      std::string real_path = p.get_real_device_path(state.drive);
       if (real_path.empty())
         continue;
 
@@ -504,15 +504,14 @@ public:
           return false;
         }
       } else if (p.mount_point == "/") {
-        if (!uli::partitioner::format::MountWrapper::mount(real_path,
-                                                           "/mnt")) {
-          Warn::print_error("Failed to mount Root partition to /mnt (" + real_path + ")");
+        if (!uli::partitioner::format::MountWrapper::mount(real_path, "/mnt")) {
+          Warn::print_error("Failed to mount Root partition to /mnt (" +
+                            real_path + ")");
           return false;
         }
       } else if (!p.mount_point.empty()) {
         std::string target = "/mnt" + p.mount_point;
-        if (!uli::partitioner::format::MountWrapper::mount(real_path,
-                                                           target)) {
+        if (!uli::partitioner::format::MountWrapper::mount(real_path, target)) {
           Warn::print_error("Failed to mount " + p.mount_point + " to " +
                             target + " (" + real_path + ")");
           return false;
@@ -520,18 +519,16 @@ public:
       }
     }
 
-
-
-
     return true;
   }
 
   // Safely unmounts everything to prevent corrupted mount states on failure
   static void cleanup_mounts(MenuState &state, const std::string &distro) {
-    BlackBox::log("CLEANUP: Performing robust unmount of all target filesystems");
+    BlackBox::log(
+        "CLEANUP: Performing robust unmount of all target filesystems");
 
     // 1. Force unmount any API systems that might be lingering
-    // We use lazy unmount (-l) to handle cases where the filesystem is "busy" 
+    // We use lazy unmount (-l) to handle cases where the filesystem is "busy"
     // but the supervising process group has been killed.
     std::system("umount -l /mnt/dev/pts 2>/dev/null");
     std::system("umount -l /mnt/dev 2>/dev/null");
@@ -543,7 +540,6 @@ public:
     uli::partitioner::format::MountWrapper::swapoff_all();
     uli::partitioner::format::MountWrapper::umount_recursive("/mnt");
   }
-
 
   // Mounts virtual filesystems needed for chroot (proc, sys, dev)
   static bool mount_api_systems(const std::string &root) {
@@ -668,8 +664,8 @@ public:
         if (!primary_efi_found) {
           // This is the chosen authority
           if (p.mount_point != "/boot/efi") {
-            BlackBox::log("Overriding " + p.device_path + " mount point: " +
-                           p.mount_point + " -> /boot/efi");
+            BlackBox::log("Overriding " + p.device_path +
+                          " mount point: " + p.mount_point + " -> /boot/efi");
             p.mount_point = "/boot/efi";
           }
           state.efi_directory = "/boot/efi";
@@ -678,7 +674,7 @@ public:
           // This is a secondary vfat, it shouldn't be /boot/efi
           if (p.mount_point == "/boot/efi" || p.mount_point == "/boot") {
             BlackBox::log("Stripping duplicate/conflicting EFI mount from " +
-                           p.device_path);
+                          p.device_path);
             p.mount_point = ""; // Strip to avoid conflicts
           }
         }
@@ -690,50 +686,54 @@ public:
     }
   }
 
-
   // Verification step for Repair Mode
   static bool verify_partitions_exist(const MenuState &state) {
     BlackBox::log("Reparing PRE-FLIGHT: Verifying block devices and sizes...");
     for (const auto &p : state.partitions) {
-        std::string real_path = p.get_real_device_path();
-        if (real_path.empty()) continue;
-        
-        // 1. Exact existence check
-        std::string cmd = "lsblk " + real_path + " 2>/dev/null";
-        if (std::system(cmd.c_str()) != 0) {
-            Warn::print_error("Repair logic failed: Block device " + real_path + " not found!");
-            return false;
-        }
+      std::string real_path = p.get_real_device_path(state.drive);
+      if (real_path.empty())
+        continue;
 
-        // 2. Size consistency check (Optional but recommended for hotpatching)
-        if (!p.size_cmd.empty() && std::isdigit(p.size_cmd[0])) {
-            try {
-                long long yaml_bytes = std::stoll(p.size_cmd);
-                long long actual_bytes = uli::partitioner::DiskCheck::get_disk_size_bytes(real_path);
-                
-                // Allow a 2MB tolerance for alignment differences
-                long long diff = std::abs(actual_bytes - yaml_bytes);
-                if (diff > 2 * 1024 * 1024) {
-                    Warn::print_warning("Size Mismatch for " + real_path + ": YAML=" + 
-                                       std::to_string(yaml_bytes) + " vs HW=" + std::to_string(actual_bytes));
-                    
-                    std::vector<std::string> choices = {"Continue anyway", "Abort Repair"};
-                    int sel = DialogBox::ask_selection("Size Inconsistency", 
-                                "The size of " + real_path + " does not match the YAML exactly. Continue?", choices);
-                    if (sel != 0) return false;
-                }
-            } catch (...) {
-                // Ignore parsing errors for complex size_cmd (+512M)
-            }
+      // 1. Exact existence check
+      std::string cmd = "lsblk " + real_path + " 2>/dev/null";
+      if (std::system(cmd.c_str()) != 0) {
+        Warn::print_error("Repair logic failed: Block device " + real_path +
+                          " not found!");
+        return false;
+      }
+
+      // 2. Size consistency check (Optional but recommended for hotpatching)
+      if (!p.size_cmd.empty() && std::isdigit(p.size_cmd[0])) {
+        try {
+          long long yaml_bytes = std::stoll(p.size_cmd);
+          long long actual_bytes =
+              uli::partitioner::DiskCheck::get_disk_size_bytes(real_path);
+
+          // Allow a 2MB tolerance for alignment differences
+          long long diff = std::abs(actual_bytes - yaml_bytes);
+          if (diff > 2 * 1024 * 1024) {
+            Warn::print_warning("Size Mismatch for " + real_path +
+                                ": YAML=" + std::to_string(yaml_bytes) +
+                                " vs HW=" + std::to_string(actual_bytes));
+
+            std::vector<std::string> choices = {"Continue anyway",
+                                                "Abort Repair"};
+            int sel = DialogBox::ask_selection(
+                "Size Inconsistency",
+                "The size of " + real_path +
+                    " does not match the YAML exactly. Continue?",
+                choices);
+            if (sel != 0)
+              return false;
+          }
+        } catch (...) {
+          // Ignore parsing errors for complex size_cmd (+512M)
         }
+      }
     }
     return true;
   }
-
 };
-
-
-
 
 } // namespace runtime
 } // namespace uli
