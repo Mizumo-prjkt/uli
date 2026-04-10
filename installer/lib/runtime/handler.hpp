@@ -522,9 +522,22 @@ public:
 
   // Safely unmounts everything to prevent corrupted mount states on failure
   static void cleanup_mounts(MenuState &state, const std::string &distro) {
+    BlackBox::log("CLEANUP: Performing robust unmount of all target filesystems");
+
+    // 1. Force unmount any API systems that might be lingering
+    // We use lazy unmount (-l) to handle cases where the filesystem is "busy" 
+    // but the supervising process group has been killed.
+    std::system("umount -l /mnt/dev/pts 2>/dev/null");
+    std::system("umount -l /mnt/dev 2>/dev/null");
+    std::system("umount -l /mnt/proc 2>/dev/null");
+    std::system("umount -l /mnt/sys 2>/dev/null");
+    std::system("umount -l /mnt/run 2>/dev/null");
+
+    // 2. Clear swap and Recursive unmount /mnt
     uli::partitioner::format::MountWrapper::swapoff_all();
     uli::partitioner::format::MountWrapper::umount_recursive("/mnt");
   }
+
 
   // Mounts virtual filesystems needed for chroot (proc, sys, dev)
   static bool mount_api_systems(const std::string &root) {

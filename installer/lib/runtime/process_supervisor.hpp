@@ -24,6 +24,34 @@ enum class SupervisionResult {
     ABORT         // Ctrl+C
 };
 
+class TerminalGuard {
+public:
+    TerminalGuard() {
+        tcgetattr(STDIN_FILENO, &oldt);
+        is_active = true;
+    }
+    
+    void set_raw() {
+        struct termios newt = oldt;
+        newt.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    }
+    
+    void reset() {
+        if (is_active) {
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        }
+    }
+    
+    ~TerminalGuard() {
+        reset();
+    }
+
+private:
+    struct termios oldt;
+    bool is_active = false;
+};
+
 class ProcessSupervisor {
 public:
     static SupervisionResult execute(const std::string& command) {
@@ -40,12 +68,9 @@ public:
             return SupervisionResult::FAILURE;
         }
 
-        // Parent process
-        struct termios oldt, newt;
-        tcgetattr(STDIN_FILENO, &oldt);
-        newt = oldt;
-        newt.c_lflag &= ~(ICANON | ECHO);
-        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        // Parent process: Setup RAII terminal management
+        TerminalGuard term_guard;
+        term_guard.set_raw();
 
         SupervisionResult result = SupervisionResult::SUCCESS;
         int status;
@@ -91,12 +116,17 @@ public:
                         result = SupervisionResult::RESTART_HARD;
                         break;
                     } else if (c == 0x08) { // Ctrl+H (BS/Help)
+                        term_guard.reset(); // Reset for help display
                         uli::documentation::print_supervision_help();
                         std::cout << "\n[INFO] Resuming session monitoring...\n";
+                        term_guard.set_raw(); // Restore raw mode
                     } else if (c == 0x0F) { // Ctrl+O (SI)
                         BlackBox::log("SUPERVISOR: Caught Ctrl+O (Hold Mode)");
                         kill(-child_pid, SIGKILL); // Kill process group
                         waitpid(child_pid, &status, 0);
+                        
+                        // EMERGENCY TERMINAL RESET before hold mode interaction
+                        term_guard.reset();
                         
                         std::cout << "\n\n\033[1;33m--- INSTALLER ON HOLD ---\033[0m\n";
                         std::cout << "Installation paused. Select your next step:\n";
@@ -136,10 +166,11 @@ public:
             }
         }
 
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        // TerminalGuard destructor will automatically reset the terminal here
         return result;
     }
 };
+
 
 } // namespace runtime
 } // namespace uli

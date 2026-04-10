@@ -158,7 +158,6 @@ std::string DpkgAptManager::build_install_command(
     cmd << "debootstrap --include=locales,ca-certificates " << suite << " /mnt "
         << mirror << " && ";
 
-
     // Phase 2: Setup networking (DNS) for the chroot
     cmd << "if [ -L /mnt/etc/resolv.conf ] && [ ! -e /mnt/etc/resolv.conf ]; "
            "then rm -f /mnt/etc/resolv.conf; fi; "
@@ -182,34 +181,47 @@ std::string DpkgAptManager::build_install_command(
         << "sed -i 's/^# " << full_locale << " " << locale_enc << "/"
         << full_locale << " " << locale_enc << "/' /mnt/etc/locale.gen && ";
 
-    // Phase 4.5: Manual API mounts (Enforced per user request)
-    uli::runtime::BlackBox::log("DPKG_APT: Using manual bind-mounts for /dev, /proc, /sys, /run");
-    cmd << "mount -t proc /proc /mnt/proc && "
-        << "mount -t sysfs /sys /mnt/sys && "
-        << "mount --bind /dev /mnt/dev && "
-        << "mount -t devpts devpts /mnt/dev/pts -o nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=666 && "
-        << "mount --bind /run /mnt/run && "
+    // Phase 4.5: Idempotent Manual API mounts (Enforced per user request)
+    // We check if the target is already a mountpoint before mounting to prevent
+    // stacked mounts on retry.
+    uli::runtime::BlackBox::log("DPKG_APT: Ensuring idempotent bind-mounts for "
+                                "/dev, /proc, /sys, /run");
+    cmd << "mountpoint -q /mnt/proc || mount -t proc /proc /mnt/proc && "
+        << "mountpoint -q /mnt/sys || mount -t sysfs /sys /mnt/sys && "
+        << "mountpoint -q /mnt/dev || mount --bind /dev /mnt/dev && "
+        << "mountpoint -q /mnt/dev/pts || mount -t devpts devpts /mnt/dev/pts "
+           "-o nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=666 && "
+        << "mountpoint -q /mnt/run || mount --bind /run /mnt/run && "
         << "rm -f /mnt/dev/ptmx && ln -s pts/ptmx /mnt/dev/ptmx && ";
 
     // Phase 5: Enable additional repository components
     cmd << "if [ -f /mnt/etc/apt/sources.list.d/debian.sources ]; then "
-        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
+        << "sed -i 's/^Components: \\(.*\\)/Components: \\1 contrib non-free "
+           "non-free-firmware/' /mnt/etc/apt/sources.list.d/debian.sources; "
         << "fi; "
         << "if [ -f /mnt/etc/apt/sources.list ]; then "
-        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" /mnt/etc/apt/sources.list; "
+        << "sed -i \"s/main\\$/main contrib non-free non-free-firmware/\" "
+           "/mnt/etc/apt/sources.list; "
         << "fi && ";
 
-    // Phase 6: Consolidated Staged chroot Execution (Stage 1: Base/zstd -> Stage 2: User)
+    // Phase 6: Consolidated Staged chroot Execution (Stage 1: Base/zstd ->
+    // Stage 2: User)
     std::string pm_bin = (version >= 13) ? "apt" : "apt-get";
-    std::string env = "DEBIAN_FRONTEND=noninteractive LANG=" + full_locale;
+    std::string env = "DEBIAN_FRONTEND=noninteractive LANG=" + full_locale +
+                      " DBUS_SESSION_BUS_ADDRESS=/dev/null";
 
-    // Use standard chroot with manual mounts for maximum control
-    cmd << "chroot /mnt /bin/bash -c \"" << env << " locale-gen " << full_locale << " && "
-        << env << " " << pm_bin << " update && "
-        << env << " " << pm_bin << " install -y zstd linux-image-amd64 linux-headers-amd64 initramfs-tools network-manager && "
+    // Use standard chroot wrapped in 'script' to provide a private PTY for the
+    // guest. This prevents post-installation scripts from corrupting or
+    // freezing the supervisor terminal.
+    cmd << "script -q -c \"chroot /mnt /bin/bash -c \\\"" << env
+        << " locale-gen " << full_locale << " && " << env << " " << pm_bin
+        << " update && " << env << " " << pm_bin
+        << " install -y zstd linux-image-amd64 linux-headers-amd64 "
+           "initramfs-tools network-manager && "
         << env << " " << pm_bin << " install -y";
 
-    uli::runtime::BlackBox::log("DPKG_APT: Manual mount bootstrap command chain initialized");
+    uli::runtime::BlackBox::log(
+        "DPKG_APT: Manual mount bootstrap command chain initialized");
 
   } else {
     cmd << config.install_cmd;
@@ -220,11 +232,11 @@ std::string DpkgAptManager::build_install_command(
   }
 
   if (is_bootstrap) {
-    // Phase 7: Cleanup (Using lazy unmounts since we manually bind-mounted)
-    cmd << "\" && rm -f /mnt/usr/sbin/policy-rc.d && "
+    // Phase 7: Cleanup
+    // Close the nested quotes: bash -c \", then script \"
+    cmd << "\\\"\" /dev/null && rm -f /mnt/usr/sbin/policy-rc.d && "
         << "umount -l /mnt/dev/pts /mnt/dev /mnt/proc /mnt/sys /mnt/run";
   }
-
 
   return cmd.str();
 }

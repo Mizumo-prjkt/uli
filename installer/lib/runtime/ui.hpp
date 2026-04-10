@@ -85,6 +85,7 @@ public:
 
       if (action == "ABORT") {
         Warn::print_warning("Installation Aborted.");
+        uli::runtime::UIHandler::cleanup_mounts(state, os_distro);
         return;
       } else if (action == "INSTALL") {
         std::string missing = "";
