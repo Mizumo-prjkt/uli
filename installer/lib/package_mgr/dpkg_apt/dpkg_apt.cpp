@@ -192,7 +192,8 @@ std::string DpkgAptManager::build_install_command(
         << " install -y";
 
     // We'll append the packages later in the loop
-    BlackBox::log("DPKG_APT: Bootstrap command chain initialized");
+    uli::runtime::BlackBox::log("DPKG_APT: Bootstrap command chain initialized");
+
   } else {
     cmd << config.install_cmd;
   }
