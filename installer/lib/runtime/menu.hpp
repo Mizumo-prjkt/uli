@@ -80,7 +80,7 @@ struct MenuState {
   std::vector<PartitionConfig> partitions;
   std::string bootloader = "systemd-boot";
   std::string bootloader_target = "x86_64-efi";
-  std::string bootloader_id = "Arch Linux";
+  std::string bootloader_id = "Linux";
   std::string efi_directory = "/boot";
   int efi_partition = 1;
 
@@ -96,7 +96,7 @@ struct MenuState {
   }
 
 
-  std::string hostname = "archlinux";
+  std::string hostname = "linux";
   std::string root_password = "None";
   std::vector<UserConfig> users;
 

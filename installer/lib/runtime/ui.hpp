@@ -70,7 +70,16 @@ public:
     // Set defaults for specific distros
     if (os_distro == "Debian") {
         state.bootloader = "grub";
+        state.bootloader_id = "Debian";
+        state.hostname = "debian";
         state.efi_directory = "/boot/efi";
+        state.kernel = "linux-image-amd64";
+    } else if (os_distro == "Alpine Linux") {
+        state.bootloader = "syslinux";
+        state.bootloader_id = "Alpine Linux";
+        state.hostname = "alpine";
+        state.efi_directory = "/boot";
+        state.kernel = "linux-lts";
     }
 
 
