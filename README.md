@@ -1,6 +1,6 @@
 # HarukaInstaller
 
-> ![WARNING]
+> [!WARNING]
 > This project is a work in progress and **is** not for production use
 >
 > Even if previous commits may sound it's meant for every distro
@@ -8,7 +8,7 @@
 >
 > This README is not yet done.
 
-> ![IMPORTANT]
+> [!IMPORTANT]
 > While This Project now is called HarukaInstaller, **It's still** called `uli-git` in the AUR Repo
 > DO NOT MAKE A DUPLICATE AUR REPO, `uli-git` is the only official AUR Repo for this Project, unless announced otherwise.
 
