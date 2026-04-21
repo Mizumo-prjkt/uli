@@ -1,3 +1,0 @@
-PyQt6
-textual
-textual-dev
