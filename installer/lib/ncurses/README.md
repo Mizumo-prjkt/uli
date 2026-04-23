@@ -19,16 +19,54 @@ g++ -Ilib/ncurses -Llib/ncurses -lncurses -o ncurseslib ncurseslib.cpp
 
 ## How to Use
 
+To use the TUI, you can utilize the `MainMenu` system along with custom `Page` implementations. The `DataStore` singleton is also available for persistent state management.
+
 ```cpp
 #include "ncurseslib.hpp"
+#include "mainmenu/mainmenu.hpp"
+#include "mainmenu/pages/page.hpp"
+#include "configurations/datastore.hpp"
+
+// Create a custom page
+class MyPage : public Page {
+public:
+    std::string title() const override { return "My Custom Page"; }
+    
+    void render(WINDOW* win) override {
+        wattron(win, COLOR_PAIR(CP_SECTION_TITLE) | A_BOLD);
+        mvwprintw(win, 1, 2, "Welcome to My Page");
+        wattroff(win, COLOR_PAIR(CP_SECTION_TITLE) | A_BOLD);
+        
+        mvwprintw(win, 3, 2, "Press ENTER to return to the main menu.");
+    }
+    
+    bool handle_input(WINDOW* win, int ch) override {
+        (void)win;
+        if (ch == '\n' || ch == KEY_ENTER) {
+            return true; // Return true to signal we want to go back to the menu
+        }
+        return false;
+    }
+};
 
 int main() {
-    NcursesLib ncurseslib;
-    ncurseslib.init_ncurses();
-    ncurseslib.print_string("Hello World");
-    ncurseslib.refresh();
-    ncurseslib.getch();
-    ncurseslib.end_ncurses();
+    // 1. Initialize ncurses
+    NcursesLib ncurses;
+    ncurses.init_ncurses();
+
+    // 2. Build the main menu
+    MainMenu menu;
+    menu.add_page("Open My Page", new MyPage());
+    
+    menu.add_separator();
+    menu.add_action("Save Config");
+    menu.add_action("Exit");
+
+    // 3. Run the menu loop
+    menu.run();
+
+    // 4. Cleanup
+    ncurses.end_ncurses();
     return 0;
 }
 ```
