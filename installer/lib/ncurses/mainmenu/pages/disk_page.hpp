@@ -9,7 +9,7 @@
 #include <iomanip>
 #include <sstream>
 
-enum class DiskSection { SelectDisk, ManageDisk, EditPartition };
+enum class DiskSection { SelectDisk, ManageDisk };
 
 class DiskPage : public Page {
   DiskSection section_ = DiskSection::SelectDisk;
@@ -56,25 +56,74 @@ public:
     switch (section_) {
     case DiskSection::SelectDisk: render_select_disk(win); break;
     case DiskSection::ManageDisk: render_manage_disk(win); break;
-    case DiskSection::EditPartition: render_edit_partition(win); break;
     }
   }
 
   bool handle_input(WINDOW *win, int ch) override {
     if (NcursesLib::is_back_key(ch)) {
-      if (section_ == DiskSection::EditPartition) { section_ = DiskSection::ManageDisk; return true; }
       if (section_ == DiskSection::ManageDisk) { section_ = DiskSection::SelectDisk; return true; }
       return false;
     }
     switch (section_) {
     case DiskSection::SelectDisk: return handle_select_disk(ch);
     case DiskSection::ManageDisk: return handle_manage_disk(ch);
-    case DiskSection::EditPartition: return handle_edit_partition(ch);
     }
     return false;
   }
 
 private:
+  void draw_disk_bar(WINDOW *win, int y, int x, int w) {
+    const auto &disk = DataStore::instance().disks[selected_disk_];
+    uint64_t total = disk.size_mb;
+    if (total == 0) return;
+    int bar_max_w = w - 6;
+    int curr_x = x + 1;
+    
+    for (const auto &p : disk.partitions) {
+      int bar_w = (p.size_mb * bar_max_w) / total;
+      if (bar_w < 1 && p.size_mb > 0) bar_w = 1;
+      
+      int color = fs_color(p.filesystem);
+      wattron(win, COLOR_PAIR(color));
+      for (int i = 0; i < bar_w && (curr_x + i) < (x + bar_max_w + 1); i++) {
+        mvwaddch(win, y, curr_x + i, ' ');
+        mvwaddch(win, y + 1, curr_x + i, ' ');
+      }
+      
+      if (bar_w > 6) {
+          std::string label = p.device;
+          if (label.size() > (size_t)bar_w - 2) label = label.substr(0, bar_w - 2);
+          mvwprintw(win, y, curr_x + (bar_w - label.size()) / 2, "%s", label.c_str());
+      }
+      wattroff(win, COLOR_PAIR(color));
+      curr_x += bar_w;
+    }
+    
+    // Fill remaining with unallocated
+    if (curr_x < x + bar_max_w + 1) {
+        wattron(win, COLOR_PAIR(CP_DISK_UNALLOC));
+        for (int i = 0; curr_x + i < (x + bar_max_w + 1); i++) {
+            mvwaddch(win, y, curr_x + i, ' ');
+            mvwaddch(win, y + 1, curr_x + i, ' ');
+        }
+        wattroff(win, COLOR_PAIR(CP_DISK_UNALLOC));
+    }
+    
+    // Draw border around bar
+    wattron(win, COLOR_PAIR(CP_CONTENT_BORDER));
+    mvwaddch(win, y, x, ACS_VLINE);
+    mvwaddch(win, y+1, x, ACS_VLINE);
+    mvwaddch(win, y, x + bar_max_w + 1, ACS_VLINE);
+    mvwaddch(win, y+1, x + bar_max_w + 1, ACS_VLINE);
+    mvwhline(win, y - 1, x, ACS_HLINE, bar_max_w + 2);
+    mvwhline(win, y + 2, x, ACS_HLINE, bar_max_w + 2);
+    mvwaddch(win, y - 1, x, ACS_ULCORNER);
+    mvwaddch(win, y - 1, x + bar_max_w + 1, ACS_URCORNER);
+    mvwaddch(win, y + 2, x, ACS_LLCORNER);
+    mvwaddch(win, y + 2, x + bar_max_w + 1, ACS_LRCORNER);
+    wattroff(win, COLOR_PAIR(CP_CONTENT_BORDER));
+  }
+
   void render_select_disk(WINDOW *win) {
     int h, w; getmaxyx(win, h, w);
     wattron(win, COLOR_PAIR(CP_SECTION_TITLE) | A_BOLD);
@@ -99,14 +148,35 @@ private:
     wattron(win, COLOR_PAIR(CP_SECTION_TITLE) | A_BOLD);
     mvwprintw(win, 1, 2, "Disk: %s (%s)", disk.device.c_str(), fmt_size(disk.size_mb).c_str());
     wattroff(win, COLOR_PAIR(CP_SECTION_TITLE) | A_BOLD);
-    int table_y = 6;
+    
+    draw_disk_bar(win, 3, 2, w);
+    
+    // Legend
+    int lx = 2;
+    mvwprintw(win, 6, lx, "Legend: "); lx += 8;
+    auto draw_legend = [&](const std::string& name, int cp) {
+        wattron(win, COLOR_PAIR(cp));
+        mvwprintw(win, 6, lx, "  "); lx += 3;
+        wattroff(win, COLOR_PAIR(cp));
+        mvwprintw(win, 6, lx, "%s  ", name.c_str()); lx += name.size() + 2;
+    };
+    draw_legend("ext4", CP_DISK_EXT4);
+    draw_legend("fat32", CP_DISK_FAT32);
+    draw_legend("btrfs", CP_DISK_BTRFS);
+    draw_legend("swap", CP_DISK_SWAP);
+    draw_legend("xfs", CP_DISK_XFS);
+    draw_legend("free", CP_DISK_UNALLOC);
+
+    int table_y = 8;
     wattron(win, COLOR_PAIR(CP_TABLE_HEADER) | A_BOLD | A_UNDERLINE);
     mvwprintw(win, table_y, 2, "   %-12s %-10s %10s  %-10s  %-12s", "Device", "Mount", "Size", "FS", "Flags");
     wattroff(win, COLOR_PAIR(CP_TABLE_HEADER) | A_BOLD | A_UNDERLINE);
+    
     int max_items = disk.partitions.size() + 2;
-    int list_h = h - table_y - 2;
+    int list_h = h - table_y - 4; // Room for table and info bar
     if (selected_part_ < part_scroll_) part_scroll_ = selected_part_;
     if (selected_part_ >= part_scroll_ + list_h) part_scroll_ = selected_part_ - list_h + 1;
+    
     for (int i = 0; i < list_h && (part_scroll_ + i) < max_items; i++) {
       int idx = part_scroll_ + i;
       int ry = table_y + 1 + i;
@@ -119,6 +189,20 @@ private:
       else mvwprintw(win, ry, 6, "[ BACK ]");
       if (is_sel) wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
     }
+
+    // Info Bar
+    wattron(win, COLOR_PAIR(CP_STATUS_BAR));
+    mvwhline(win, h - 1, 0, ' ', w);
+    if (selected_part_ < (int)disk.partitions.size()) {
+        const auto &p = disk.partitions[selected_part_];
+        mvwprintw(win, h - 1, 2, "INFO: %s | %s | %s | %s MB | Flags: %s", 
+            p.device.c_str(), p.filesystem.c_str(), p.mount_point.c_str(), std::to_string(p.size_mb).c_str(), p.flags.c_str());
+    } else if (selected_part_ == (int)disk.partitions.size()) {
+        mvwprintw(win, h - 1, 2, "ACTION: Create a new partition on %s", disk.device.c_str());
+    } else {
+        mvwprintw(win, h - 1, 2, "ACTION: Return to disk selection");
+    }
+    wattroff(win, COLOR_PAIR(CP_STATUS_BAR));
   }
 
   void render_edit_partition(WINDOW *win) {
@@ -163,32 +247,61 @@ private:
   }
 
   bool handle_manage_disk(int ch) {
-    int max_items = DataStore::instance().disks[selected_disk_].partitions.size() + 2;
+    auto &ds = DataStore::instance();
+    int max_items = ds.disks[selected_disk_].partitions.size() + 2;
+    
     if (ch == KEY_UP && selected_part_ > 0) { selected_part_--; return true; }
     if (ch == KEY_DOWN && selected_part_ < max_items - 1) { selected_part_++; return true; }
+    
+    if (ch == KEY_LEFT && selected_disk_ > 0) {
+        selected_disk_--; selected_part_ = 0; return true;
+    }
+    if (ch == KEY_RIGHT && selected_disk_ < (int)ds.disks.size() - 1) {
+        selected_disk_++; selected_part_ = 0; return true;
+    }
+
+    if (ch == 'd' || ch == 'D' || ch == KEY_DC) {
+      if (selected_part_ < (int)ds.disks[selected_disk_].partitions.size()) {
+          if (YesNoPopup::show("Delete Partition", "Are you sure you want to delete " + ds.disks[selected_disk_].partitions[selected_part_].device + "?")) {
+              ds.disks[selected_disk_].partitions.erase(ds.disks[selected_disk_].partitions.begin() + selected_part_);
+              if (selected_part_ > 0) selected_part_--;
+              return true;
+          }
+      }
+    }
+
     if (ch == '\n' || ch == KEY_ENTER) {
-      if (selected_part_ < (int)DataStore::instance().disks[selected_disk_].partitions.size()) {
-        section_ = DiskSection::EditPartition; selected_part_field_ = 0;
-      } else if (selected_part_ == (int)DataStore::instance().disks[selected_disk_].partitions.size()) {
-         /* Add logic for new partition */
+      if (selected_part_ < (int)ds.disks[selected_disk_].partitions.size()) {
+        auto &p = ds.disks[selected_disk_].partitions[selected_part_];
+        
+        std::vector<FormField> fields = {
+            {"Mount Point", "e.g. /, /home, /boot/efi", p.mount_point, 20, FieldType::Text},
+            {"Filesystem", "ext4, btrfs, fat32, swap, xfs", p.filesystem, 10, FieldType::Text},
+            {"Flags", "e.g. boot, esp", p.flags, 30, FieldType::Text},
+            {"Size (MB)", "Size in Megabytes", std::to_string(p.size_mb), 10, FieldType::Text}
+        };
+        
+        if (FormPopup::show("Edit Partition: " + p.device, fields)) {
+            p.mount_point = fields[0].value;
+            p.filesystem = fields[1].value;
+            p.flags = fields[2].value;
+            try { p.size_mb = std::stoull(fields[3].value); } catch (...) {}
+        }
+      } else if (selected_part_ == (int)ds.disks[selected_disk_].partitions.size()) {
+         // Create New Partition
+         std::string size_str = InputPopup::show("New Partition", "Enter size in MB:", "1024");
+         if (!size_str.empty()) {
+             DiskPartition np;
+             np.device = ds.disks[selected_disk_].device + std::to_string(ds.disks[selected_disk_].partitions.size() + 1);
+             np.mount_point = "/mnt/new";
+             np.filesystem = "ext4";
+             np.size_mb = std::stoull(size_str);
+             ds.disks[selected_disk_].partitions.push_back(np);
+         }
       } else section_ = DiskSection::SelectDisk;
       return true;
     }
     return false;
   }
 
-  bool handle_edit_partition(int ch) {
-    if (ch == KEY_UP && selected_part_field_ > 0) { selected_part_field_--; return true; }
-    if (ch == KEY_DOWN && selected_part_field_ < 6) { selected_part_field_++; return true; }
-    if (ch == '\n' || ch == KEY_ENTER) {
-        auto &p = DataStore::instance().disks[selected_disk_].partitions[selected_part_];
-        if (selected_part_field_ == 1) { std::string res = InputPopup::show("Mount Point", "Enter path:", p.mount_point); if(!res.empty()) p.mount_point = res; }
-        else if (selected_part_field_ == 2) { std::string res = InputPopup::show("Filesystem", "Enter type:", p.filesystem); if(!res.empty()) p.filesystem = res; }
-        else if (selected_part_field_ == 3) { std::string res = InputPopup::show("Flags", "Enter flags:", p.flags); if(!res.empty()) p.flags = res; }
-        else if (selected_part_field_ == 4) { std::string res = InputPopup::show("Resize", "Enter MB:", std::to_string(p.size_mb)); if(!res.empty()) p.size_mb = std::stoull(res); }
-        else if (selected_part_field_ == 5) { section_ = DiskSection::ManageDisk; return true; }
-        else if (selected_part_field_ == 6) { section_ = DiskSection::ManageDisk; return true; }
-    }
-    return false;
-  }
 };
