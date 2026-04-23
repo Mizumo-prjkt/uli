@@ -1,17 +1,21 @@
 # HarukaInstaller
 
+<img src=".github/public/images/banner.png">
+
 > [!WARNING]
 > This project is a work in progress and **is** not for production use
 >
 > Even if previous commits may sound it's meant for every distro
-> This one is only targeting Arch Linux as a main priority, however i will try to leave some parts that can be used for Other Distros
+> This one is only targeting Arch Linux as a main priority
 >
 > This README is not yet done.
 
 > [!IMPORTANT]
 > While This Project now is called HarukaInstaller, **It's still** called `uli-git` in the AUR Repo
 >
-> DO NOT MAKE A DUPLICATE AUR REPO, `uli-git` is the only official AUR Repo for this Project, unless announced otherwise.
+> DO NOT MAKE A DUPLICATE AUR REPO, `uli-git` is the only official AUR Repo for this Project, unless announced otherwise. I will also request a takedown if an unauthorized AUR repo is made. Also, the maintainer should be `mizumo_prjkt` on the AUR Account.
+>
+> **UPDATE**: The feature regarding on the distro agnostic install features have been revoked, since other distros tend to be messy, and it's a pain in the butt to maintain. But i could reconsider again in the future, but for now, **it's Arch Linux only.**
 
 
 HarukaInstaller, formerly known as ULI or Universal Linux Installer, is yet another Linux Installer, that aims to of course, install a Linux Distro, but with "unsafe" C++
@@ -36,7 +40,7 @@ For example, on Arch Linux, it uses `pacstrap` to install the base system, `genf
 
 But this one has this unique quirks. It has YAML parsing capability. Which means, it can be installed with a YAML file as an instruction.
 
-I usually reinstall sometimes, so a handy unattended install is a nice touch.
+I usually reinstall sometimes, so a handy unattended install is a nice touch (archinstall has it but its a pain in the butt.)
 
 
 
