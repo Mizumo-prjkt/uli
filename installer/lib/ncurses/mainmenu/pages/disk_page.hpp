@@ -44,6 +44,14 @@ public:
     return "Storage Device > Edit Partition";
   }
 
+  bool has_pending_changes() const override {
+    return section_ != DiskSection::SelectDisk;
+  }
+
+  void discard_pending_changes() override {
+    section_ = DiskSection::SelectDisk;
+  }
+
   void render(WINDOW *win) override {
     switch (section_) {
     case DiskSection::SelectDisk: render_select_disk(win); break;

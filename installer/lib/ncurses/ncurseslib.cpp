@@ -1,7 +1,9 @@
 // ncurseslib.cpp - Core ncurses wrapper implementation for HarukaInstaller
 #include "ncurseslib.hpp"
+#include <clocale>
 
 void NcursesLib::init_ncurses() {
+  setlocale(LC_ALL, "");
   initscr();
   cbreak();
   noecho();
@@ -80,6 +82,7 @@ void NcursesLib::draw_hline(WINDOW *win, int y, int x1, int x2) {
 
 void NcursesLib::fill_background(WINDOW *win, int color_pair) {
   wbkgd(win, COLOR_PAIR(color_pair));
+  werase(win);
 }
 
 void NcursesLib::print_center(WINDOW *win, int y, const std::string &text) {

@@ -1,8 +1,9 @@
 // mainmenu.cpp - Main menu layout and event loop implementation
 #include "mainmenu.hpp"
+#include "../configurations/datastore.hpp"
+#include "sessionlock.hpp"
 #include <algorithm>
 #include <cstring>
-#include "../configurations/datastore.hpp"
 
 MainMenu::MainMenu() {}
 
@@ -195,7 +196,9 @@ void MainMenu::draw_status_bar() {
   if (content_focused_) {
     // Content-focused hints
     mvwprintw(win_status_, 0, 1, "Mode:  [Content Configuration]");
-    mvwprintw(win_status_, 1, 1, "Keys:  TAB (Cycle Sections)  ESC/LEFT/BACKSPACE (Back)  ARROWS (Navigate)");
+    mvwprintw(
+        win_status_, 1, 1,
+        "Keys:  TAB (Cycle Sections)  BACKSPACE (Back)  ARROWS (Navigate)");
   } else {
     // Sidebar-focused hints
     mvwprintw(win_status_, 0, 1, "Mode:  [Main Navigation]");
@@ -251,10 +254,11 @@ void MainMenu::handle_action(const std::string &label) {
   } else if (label == "Save Config") {
     werase(win_content_);
     NcursesLib::draw_titled_box(win_content_, "Save Config");
-    auto& ds = DataStore::instance();
+    auto &ds = DataStore::instance();
     mvwprintw(win_content_, 4, 4, "Mirrors:    %zu", ds.mirrors.size());
     mvwprintw(win_content_, 5, 4, "Disks:      %zu", ds.disks.size());
-    mvwprintw(win_content_, 6, 4, "ZRAM/ZSWAP: %s/%s", ds.zram_enabled ? "ON" : "OFF", ds.zswap_enabled ? "ON" : "OFF");
+    mvwprintw(win_content_, 6, 4, "ZRAM/ZSWAP: %s/%s",
+              ds.zram_enabled ? "ON" : "OFF", ds.zswap_enabled ? "ON" : "OFF");
     NcursesLib::print_center_attr(win_content_, getmaxy(win_content_) - 4,
                                   "Configuration saved to DataStore!",
                                   COLOR_PAIR(CP_CHECKBOX_ON) | A_BOLD);
@@ -323,10 +327,14 @@ void MainMenu::run() {
       // ── SIDEBAR MODE ────────────────────────────────────────────
       switch (ch) {
       case KEY_UP:
-        cursor_up();
+        if (SessionLock::check_and_prompt(items_[sidebar_cursor_].page)) {
+          cursor_up();
+        }
         break;
       case KEY_DOWN:
-        cursor_down();
+        if (SessionLock::check_and_prompt(items_[sidebar_cursor_].page)) {
+          cursor_down();
+        }
         break;
       case KEY_RIGHT:
       case '\t':
@@ -336,9 +344,11 @@ void MainMenu::run() {
         {
           auto &item = items_[sidebar_cursor_];
           if (item.is_action) {
-            handle_action(item.label);
-            if (item.label == "Abort") {
-              running = false;
+            if (ch == '\n' || ch == KEY_ENTER) {
+              handle_action(item.label);
+              if (item.label == "Abort") {
+                running = false;
+              }
             }
           } else if (item.page) {
             content_focused_ = true;
@@ -347,7 +357,9 @@ void MainMenu::run() {
         break;
       case 'q':
       case 'Q':
-        running = false;
+        if (SessionLock::check_and_prompt(items_[sidebar_cursor_].page)) {
+          running = false;
+        }
         break;
       case KEY_F(1):
         show_help();
@@ -363,7 +375,9 @@ void MainMenu::run() {
       }
     } else {
       // ── CONTENT MODE ────────────────────────────────────────────
-      if (ch == KEY_F(1)) {
+      if (ch == '\t') {
+        content_focused_ = false;
+      } else if (ch == KEY_F(1)) {
         show_help();
       } else if (ch == KEY_F(13)
 #ifdef KEY_SF1

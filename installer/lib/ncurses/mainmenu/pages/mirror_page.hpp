@@ -5,9 +5,11 @@
 #include "../../ncurseslib.hpp"
 #include "../../popups.hpp"
 #include "page.hpp"
+#include "countries.hpp"
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <sstream>
 
 enum class MirrorSection { Main, Reflector, Manual, Settings };
 
@@ -33,6 +35,19 @@ public:
     default:
       return "Mirror Configuration";
     }
+  }
+
+  bool has_pending_changes() const override {
+    return section_ != MirrorSection::Main;
+  }
+
+  void discard_pending_changes() override {
+    if (section_ == MirrorSection::Manual) {
+      manual_list_.items.clear();
+      manual_list_.is_focused = false;
+    }
+    section_ = MirrorSection::Main;
+    selected_ = 0;
   }
 
   void render(WINDOW *win) override {
@@ -300,25 +315,70 @@ private:
       return true;
     }
     if (ch == '\n' || ch == KEY_ENTER) {
-      if (selected_ >= 0 && selected_ <= 2) {
-        std::vector<FormField> fields = {
-            {"Countries", "Comma separated list of countries",
-             DataStore::instance().reflector_cfg.countries, 50,
-             FieldType::Text},
-            {"Last N", "Number of mirrors to test",
-             std::to_string(DataStore::instance().reflector_cfg.last_n), 5,
-             FieldType::Text},
-            {"Sort", "rate, age, country, score, delay",
-             DataStore::instance().reflector_cfg.sort, 10, FieldType::Text}};
-        if (FormPopup::show("Reflector Configuration", fields)) {
-          DataStore::instance().reflector_cfg.countries = fields[0].value;
-          try {
-            DataStore::instance().reflector_cfg.last_n =
-                std::stoi(fields[1].value);
-          } catch (...) {
-          }
-          DataStore::instance().reflector_cfg.sort = fields[2].value;
+      if (selected_ == 0) {
+        // Update Countries
+        auto countries = get_all_countries();
+        std::string current_countries = DataStore::instance().reflector_cfg.countries;
+        
+        // Pre-select current
+        std::vector<std::string> current_list;
+        std::stringstream ss(current_countries);
+        std::string token;
+        while (std::getline(ss, token, ',')) {
+            // Trim whitespace
+            token.erase(0, token.find_first_not_of(" \t\r\n"));
+            token.erase(token.find_last_not_of(" \t\r\n") + 1);
+            current_list.push_back(token);
         }
+        
+        for (auto& c : countries) {
+            for (const auto& cl : current_list) {
+                if (c.value == cl || c.label == cl) c.selected = true;
+            }
+        }
+        
+        if (ListSelectPopup::show("Select Countries", {"Use SPACE to toggle countries, and type to search.", "Select 'Worldwide' for all."}, countries, true, true)) {
+            std::string new_val = "";
+            bool first = true;
+            for (const auto& c : countries) {
+                if (c.selected) {
+                    if (!first) new_val += ", ";
+                    new_val += c.label == "Worldwide" ? "Worldwide" : c.value;
+                    first = false;
+                }
+            }
+            if (new_val.empty()) new_val = "Worldwide";
+            DataStore::instance().reflector_cfg.countries = new_val;
+        }
+      } else if (selected_ == 1) {
+          // Change Number
+          std::string num_str = InputPopup::show("Reflector Configuration", "Enter Number of mirrors to test:", std::to_string(DataStore::instance().reflector_cfg.last_n));
+          if (!num_str.empty()) {
+              try {
+                  DataStore::instance().reflector_cfg.last_n = std::stoi(num_str);
+              } catch (...) {}
+          }
+      } else if (selected_ == 2) {
+          // Change Sort
+          std::vector<ListOption> sort_options = {
+              {"rate", "Sort by download rate", false},
+              {"age", "Sort by mirror age (sync time)", false},
+              {"country", "Sort by country name", false},
+              {"score", "Sort by mirror score", false},
+              {"delay", "Sort by mirror delay", false}
+          };
+          std::string current_sort = DataStore::instance().reflector_cfg.sort;
+          for (auto& s : sort_options) {
+              if (s.value == current_sort) s.selected = true;
+          }
+          if (ListSelectPopup::show("Select Sort Method", {"Select the reflector sorting strategy."}, sort_options, false, false)) {
+              for (const auto& s : sort_options) {
+                  if (s.selected) {
+                      DataStore::instance().reflector_cfg.sort = s.value;
+                      break;
+                  }
+              }
+          }
       } else if (selected_ == 3) {
         // RUN: In a real app, this would show a progress popup
       } else if (selected_ == 4 || selected_ == 5) {

@@ -17,4 +17,11 @@ public:
 
     // The page title shown in the content panel header.
     virtual std::string title() const = 0;
+
+    // Session Locking interface
+    // Return true if the page has unsaved changes that should block navigation.
+    virtual bool has_pending_changes() const { return false; }
+    
+    // Discard any pending changes, resetting the page to a clean state.
+    virtual void discard_pending_changes() {}
 };
