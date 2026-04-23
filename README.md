@@ -5,7 +5,7 @@
 > [!WARNING]
 > This project is a work in progress and **is** not for production use
 >
-> Even if previous commits may sound it's meant for every distro
+> Even if previous commits may sound it's meant for every distro <br />
 > This one is only targeting Arch Linux as a main priority
 >
 > This README is not yet done.
