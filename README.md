@@ -42,6 +42,16 @@ But this one has this unique quirks. It has YAML parsing capability. Which means
 
 I usually reinstall sometimes, so a handy unattended install is a nice touch (archinstall has it but its a pain in the butt.)
 
+## Screenshots
+
+> [!NOTE]
+> The screenshots right now are not final since this is still in development!
+
+![src1](.github/public/images/screenshot1.png)
+
+![src2](.github/public/images/screenshot2.png)
+
+![src3](.github/public/images/screenshot3.png)
 
 
 
