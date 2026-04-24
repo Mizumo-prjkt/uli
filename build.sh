@@ -52,37 +52,26 @@ mkdir -p "$OUTDIR"
 
 case "${1:-}" in
     test-ui)
-        echo "==> Building TUI test..."
-        $CXX $CXXFLAGS -DTESTUI \
-            "$SRCDIR/ncurseslib.cpp" \
-            "$SRCDIR/mainmenu/mainmenu.cpp" \
-            "$SRCDIR/test/testing.cpp" \
-            $LDFLAGS \
-            -o "$OUTDIR/test_ui"
-        echo "==> Built: $OUTDIR/test_ui"
-        echo "    Run with: $OUTDIR/test_ui"
+        echo "==> Building TUI test with CMake..."
+        mkdir -p "$SCRIPT_DIR/build"
+        cd "$SCRIPT_DIR/build"
+        cmake -DBUILD_TEST_UI=ON ..
+        cmake --build . --target test_ui
+        echo ""
+        echo "==> Built: $SCRIPT_DIR/build/test_ui"
+        echo "    Run with: $SCRIPT_DIR/build/test_ui"
         ;;
 
     clean)
         echo "==> Cleaning build artifacts..."
-        rm -rf "$OUTDIR"
-        rm -rf "$SCRIPT_DIR/cmake-build"
+        rm -rf "$SCRIPT_DIR/build"
         echo "==> Done."
         ;;
 
-    cmake)
-        echo "==> Building with CMake..."
-        mkdir -p "$SCRIPT_DIR/cmake-build" && cd "$SCRIPT_DIR/cmake-build"
-        cmake -DBUILD_TEST_UI=ON ..
-        cmake --build .
-        echo "==> Built: cmake-build/test_ui"
-        ;;
-
     *)
-        echo "Usage: ./build.sh [test-ui|cmake|clean]"
+        echo "Usage: ./build.sh [test-ui|clean]"
         echo ""
-        echo "  test-ui   Build the ncurses TUI test program"
-        echo "  cmake     Build using CMake"
+        echo "  test-ui   Build the ncurses TUI test program (via CMake)"
         echo "  clean     Remove all build artifacts"
         ;;
 esac

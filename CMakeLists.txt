@@ -64,7 +64,7 @@ target_include_directories(ncurseslib PUBLIC
 )
 
 # ── Test UI executable ───────────────────────────────────────────────────────
-option(BUILD_TEST_UI "Build the ncurses TUI test program" OFF)
+option(BUILD_TEST_UI "Build the ncurses TUI test program" ON)
 
 if(BUILD_TEST_UI)
     add_executable(test_ui
