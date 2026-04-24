@@ -5,6 +5,8 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
+#include <functional>
+#include "mainmenu/isolatebuffer.hpp"
 
 struct ListOption {
     std::string value;
@@ -21,11 +23,12 @@ public:
         bool multi_select, 
         bool enable_search
     ) {
+        IsolateBuffer iso; // Capture screen state
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
         
         int h = std::min(max_y - 4, 25);
-        int w = std::min(max_x - 4, 60);
+        int w = std::min(max_x - 4, 80);
         int y = (max_y - h) / 2;
         int x = (max_x - w) / 2;
 
@@ -236,6 +239,7 @@ public:
 class YesNoPopup {
 public:
     static bool show(const std::string& title, const std::string& message, const std::string& note = "") {
+        IsolateBuffer iso;
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
         
@@ -335,6 +339,7 @@ public:
 class InputPopup {
 public:
     static std::string show(const std::string& title, const std::string& message, const std::string& initial = "") {
+        IsolateBuffer iso;
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
         
@@ -376,7 +381,8 @@ public:
 
 enum class FieldType {
     Text,
-    Boolean
+    Boolean,
+    Select
 };
 
 struct FormField {
@@ -385,16 +391,20 @@ struct FormField {
     std::string value;
     int max_len = 50;
     FieldType type = FieldType::Text;
+    std::vector<std::string> options; // For Select type
+    bool hidden = false;
 };
 
 class FormPopup {
 public:
-    static bool show(const std::string& title, std::vector<FormField>& fields) {
+    static bool show(const std::string& title, std::vector<FormField>& fields, 
+                    std::function<void(std::vector<FormField>&)> update_fn = nullptr) {
+        IsolateBuffer iso; // Capture screen state
         int max_y, max_x;
         getmaxyx(stdscr, max_y, max_x);
         
         int h = std::min(max_y - 4, 20);
-        int w = std::min(max_x - 4, 70);
+        int w = std::min(max_x - 4, 80);
         
         int y = (max_y - h) / 2;
         int x = (max_x - w) / 2;
@@ -407,9 +417,15 @@ public:
         bool done = false;
         bool saved = false;
         
-        int total_items = fields.size() + 2;
-
         while (!done) {
+            if (update_fn) update_fn(fields);
+            
+            std::vector<int> visible_indices;
+            for (int i = 0; i < (int)fields.size(); i++) {
+                if (!fields[i].hidden) visible_indices.push_back(i);
+            }
+            int total_items = visible_indices.size() + 2;
+
             NcursesLib::fill_background(win, CP_POPUP_WINDOW);
 
             wattron(win, COLOR_PAIR(CP_POPUP_TITLE));
@@ -423,12 +439,13 @@ public:
             int item_spacing = 3; 
             
             if (selected < scroll) scroll = selected;
-            if (selected >= scroll + (content_h / item_spacing) && selected < (int)fields.size()) {
+            if (selected >= scroll + (content_h / item_spacing) && selected < (int)visible_indices.size()) {
                 scroll = selected - (content_h / item_spacing) + 1;
             }
 
             int draw_y = 2;
-            for (size_t i = scroll; i < fields.size() && draw_y < h - 4; i++) {
+            for (size_t vi = scroll; vi < visible_indices.size() && draw_y < h - 4; vi++) {
+                int i = visible_indices[vi];
                 wattron(win, COLOR_PAIR(CP_POPUP_WINDOW));
                 mvwprintw(win, draw_y, 4, "%s:", fields[i].label.c_str());
                 
@@ -438,16 +455,18 @@ public:
                     wattroff(win, A_DIM);
                 }
                 
-                if ((int)i == selected) {
+                if ((int)vi == selected) {
                     wattron(win, COLOR_PAIR(CP_HIGHLIGHT));
                     if (fields[i].type == FieldType::Boolean) {
                         mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " < %s > ", fields[i].value.c_str());
+                    } else if (fields[i].type == FieldType::Select) {
+                        mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " [ %s ] ", fields[i].value.c_str());
                     } else {
                         mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " %-*s ", fields[i].max_len, fields[i].value.c_str());
                     }
                     wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
                 } else {
-                    if (fields[i].type == FieldType::Boolean) {
+                    if (fields[i].type == FieldType::Boolean || fields[i].type == FieldType::Select) {
                         wattron(win, COLOR_PAIR(CP_POPUP_WINDOW));
                         mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, "   %s   ", fields[i].value.c_str());
                         wattroff(win, COLOR_PAIR(CP_POPUP_WINDOW));
@@ -465,7 +484,7 @@ public:
             int save_x = w / 2 - 15;
             int cancel_x = w / 2 + 5;
 
-            if (selected == (int)fields.size()) {
+            if (selected == (int)visible_indices.size()) {
                 wattron(win, COLOR_PAIR(CP_HIGHLIGHT));
                 mvwprintw(win, h - 2, save_x, "[ SAVE ]");
                 wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
@@ -475,7 +494,7 @@ public:
                 wattroff(win, COLOR_PAIR(CP_POPUP_WINDOW));
             }
 
-            if (selected == (int)fields.size() + 1) {
+            if (selected == (int)visible_indices.size() + 1) {
                 wattron(win, COLOR_PAIR(CP_HIGHLIGHT));
                 mvwprintw(win, h - 2, cancel_x, "[ CANCEL ]");
                 wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
@@ -488,39 +507,54 @@ public:
             wrefresh(win);
 
             int ch = wgetch(win);
-            if (ch == KEY_UP && selected > 0) {
+            if (NcursesLib::is_back_key(ch)) {
+                done = true;
+            } else if (ch == KEY_UP && selected > 0) {
                 selected--;
             } else if (ch == KEY_DOWN && selected < total_items - 1) {
                 selected++;
             } else if (ch == KEY_LEFT || ch == KEY_RIGHT) {
-                if (selected < (int)fields.size() && fields[selected].type == FieldType::Boolean) {
-                    fields[selected].value = (fields[selected].value == "true") ? "false" : "true";
-                } else if (selected == (int)fields.size() + 1 && ch == KEY_LEFT) {
+                if (selected < (int)visible_indices.size()) {
+                    int i = visible_indices[selected];
+                    if (fields[i].type == FieldType::Boolean) {
+                        fields[i].value = (fields[i].value == "true") ? "false" : "true";
+                    }
+                } else if (selected == (int)visible_indices.size() + 1 && ch == KEY_LEFT) {
                     selected--;
-                } else if (selected == (int)fields.size() && ch == KEY_RIGHT) {
+                } else if (selected == (int)visible_indices.size() && ch == KEY_RIGHT) {
                     selected++;
                 }
             } else if (ch == '\n' || ch == KEY_ENTER) {
-                if (selected < (int)fields.size()) {
-                    if (fields[selected].type == FieldType::Boolean) {
-                        fields[selected].value = (fields[selected].value == "true") ? "false" : "true";
+                if (selected < (int)visible_indices.size()) {
+                    int i = visible_indices[selected];
+                    if (fields[i].type == FieldType::Boolean) {
+                        fields[i].value = (fields[i].value == "true") ? "false" : "true";
+                    } else if (fields[i].type == FieldType::Select) {
+                        std::vector<ListOption> lopts;
+                        for (const auto& o : fields[i].options) {
+                            lopts.push_back({o, o, o == fields[i].value});
+                        }
+                        if (ListSelectPopup::show("Select " + fields[i].label, {}, lopts, false, false)) {
+                            for (const auto& lo : lopts) {
+                                if (lo.selected) {
+                                    fields[i].value = lo.value;
+                                    break;
+                                }
+                            }
+                        }
                     } else {
                         int idx_in_view = selected - scroll;
                         int field_y = 2 + (idx_in_view * item_spacing);
-                        int field_x = 4 + fields[selected].label.size() + 2;
-                        fields[selected].value = NcursesLib::text_input(win, field_y, field_x, fields[selected].max_len, fields[selected].value);
-                        if (selected < (int)fields.size() - 1) selected++; 
+                        int field_x = 4 + fields[i].label.size() + 2;
+                        fields[i].value = NcursesLib::text_input(win, field_y, field_x, fields[i].max_len, fields[i].value);
+                        if (selected < (int)visible_indices.size() - 1) selected++; 
                     }
-                } else if (selected == (int)fields.size()) {
+                } else if (selected == (int)visible_indices.size()) {
                     saved = true;
                     done = true;
-                } else if (selected == (int)fields.size() + 1) {
-                    saved = false;
+                } else if (selected == (int)visible_indices.size() + 1) {
                     done = true;
                 }
-            } else if (NcursesLib::is_back_key(ch)) {
-                saved = false;
-                done = true;
             }
         }
 

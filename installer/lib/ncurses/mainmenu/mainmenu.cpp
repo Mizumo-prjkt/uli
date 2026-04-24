@@ -375,31 +375,31 @@ void MainMenu::run() {
       }
     } else {
       // ── CONTENT MODE ────────────────────────────────────────────
-      if (ch == '\t') {
-        content_focused_ = false;
-      } else if (ch == KEY_F(1)) {
-        show_help();
-      } else if (ch == KEY_F(13)
-#ifdef KEY_SF1
-                 || ch == KEY_SF1
-#endif
-      ) {
-        HelpSearch::show(redraw_all_cb);
-      } else {
-        // Forward ALL input to the page (including TAB, arrows, etc.)
-        auto &item = items_[sidebar_cursor_];
-        if (item.page) {
-          int ph, pw;
-          getmaxyx(win_content_, ph, pw);
-          WINDOW *inner = derwin(win_content_, ph - 2, pw - 2, 1, 1);
-          NcursesLib::fill_background(inner, CP_NORMAL);
+      // Forward input to the page first
+      auto &item = items_[sidebar_cursor_];
+      bool consumed = false;
+      if (item.page) {
+        int ph, pw;
+        getmaxyx(win_content_, ph, pw);
+        WINDOW *inner = derwin(win_content_, ph - 2, pw - 2, 1, 1);
+        NcursesLib::fill_background(inner, CP_NORMAL);
+        consumed = item.page->handle_input(inner, ch);
+        delwin(inner);
+      }
 
-          bool consumed = item.page->handle_input(inner, ch);
-          delwin(inner);
-          // Input stays contained — never leaks to sidebar unless not consumed
-          if (!consumed && NcursesLib::is_back_key(ch)) {
-            content_focused_ = false;
-          }
+      if (!consumed) {
+        if (ch == '\t') {
+          content_focused_ = false;
+        } else if (ch == KEY_F(1)) {
+          show_help();
+        } else if (ch == KEY_F(13)
+#ifdef KEY_SF1
+                   || ch == KEY_SF1
+#endif
+        ) {
+          HelpSearch::show(redraw_all_cb);
+        } else if (NcursesLib::is_back_key(ch)) {
+          content_focused_ = false;
         }
       }
     }

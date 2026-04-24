@@ -47,6 +47,8 @@ struct DiskPartition {
     uint64_t    size_mb;
     std::string filesystem;
     std::string flags;
+    std::string btrfs_subvol;
+    std::string btrfs_compress;
 };
 
 struct DiskInfo {
