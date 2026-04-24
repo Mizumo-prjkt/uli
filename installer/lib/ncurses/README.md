@@ -13,8 +13,14 @@ Note to compile this as object file. But you can always compile this as a standa
 
 ## How to Compile
 
+The preferred way to build the project is using the root `build.sh` script, which wraps CMake:
+
 ```bash
-g++ -Ilib/ncurses -Llib/ncurses -lncurses -o ncurseslib ncurseslib.cpp
+# Build the TUI test executable
+./build.sh test-ui
+
+# Clean build artifacts
+./build.sh clean
 ```
 
 ## How to Use
@@ -25,7 +31,8 @@ To use the TUI, you can utilize the `MainMenu` system along with custom `Page` i
 #include "ncurseslib.hpp"
 #include "mainmenu/mainmenu.hpp"
 #include "mainmenu/pages/page.hpp"
-#include "configurations/datastore.hpp"
+#include "mainmenu/isolatebuffer.hpp"
+#include "popups.hpp"
 
 // Create a custom page
 class MyPage : public Page {
@@ -37,37 +44,35 @@ public:
         mvwprintw(win, 1, 2, "Welcome to My Page");
         wattroff(win, COLOR_PAIR(CP_SECTION_TITLE) | A_BOLD);
         
-        mvwprintw(win, 3, 2, "Press ENTER to return to the main menu.");
+        mvwprintw(win, 3, 2, "Press ENTER to open a popup.");
     }
     
     bool handle_input(WINDOW* win, int ch) override {
-        (void)win;
         if (ch == '\n' || ch == KEY_ENTER) {
-            return true; // Return true to signal we want to go back to the menu
+            // Use IsolateBuffer to prevent artifacts when opening popups
+            std::vector<ListOption> opts = {{"Option 1", "v1"}, {"Option 2", "v2"}};
+            ListSelectPopup::show("My Popup", {"Choose an option"}, opts, false, false);
+            return true; 
         }
         return false;
     }
 };
 
 int main() {
-    // 1. Initialize ncurses
+    // Initialize ncurses RAII wrapper
     NcursesLib ncurses;
     ncurses.init_ncurses();
 
-    // 2. Build the main menu
+    // Setup the main menu layout
     MainMenu menu;
-    menu.add_page("Open My Page", new MyPage());
-    
+    menu.add_page("Settings", new MyPage());
     menu.add_separator();
-    menu.add_action("Save Config");
     menu.add_action("Exit");
 
-    // 3. Run the menu loop
+    // Enter the interactive loop
     menu.run();
 
-    // 4. Cleanup
-    ncurses.end_ncurses();
-    return 0;
+    return 0; // ncurses is cleaned up automatically by NcursesLib destructor
 }
 ```
 
@@ -82,3 +87,4 @@ Note that compiling the menu library to test, Test is **REQUIRED** to be compile
 `$ROOT/installer/lib/ncurses/test/simulation_test.hpp` is a test header file for the ncurses menu. This is to also help compile the menu lib and addresses the absence of logic of detecting hardware, this is served as a logic placeholder since the code of the TUI is dependant on logic of other libraries for HarukaInstaller. Testing only the UI without logic can likely lead to segmentation fault errors. So, simulation_test.hpp is needed, as a simulation of a hardware.
 
 If no testing is needed, do not invoke -DTESTUI. 
+
