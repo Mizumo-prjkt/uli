@@ -56,8 +56,8 @@ public:
     static void print_center_attr(WINDOW* win, int y, const std::string& text, int attrs);
 
     // Input helpers
-    static std::string text_input(WINDOW* win, int y, int x, int max_len, const std::string& initial_value = "");
-    static std::string masked_input(WINDOW* win, int y, int x, int max_len);
+    static std::string text_input(WINDOW* win, int y, int x, int display_width, int max_len, const std::string& initial_value = "");
+    static std::string masked_input(WINDOW* win, int y, int x, int display_width, int max_len);
     
     static bool is_back_key(int ch) {
         return (ch == 27 || ch == KEY_BACKSPACE || ch == 127 || ch == 8);

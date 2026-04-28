@@ -117,12 +117,31 @@ public:
                     mvwhline(win, draw_y, 2, ' ', w - 4);
                 }
                 
-                char checkbox = options[opt_idx].selected ? (multi_select ? 'x' : '*') : ' ';
-                mvwprintw(win, draw_y, 4, "[%c] %s (%s)", checkbox, options[opt_idx].label.c_str(), options[opt_idx].value.c_str());
+                char indicator = options[opt_idx].selected ? (multi_select ? 'x' : '*') : ' ';
+                if (multi_select) {
+                    mvwprintw(win, draw_y, 4, "[%c] %s (%s)", indicator, options[opt_idx].label.c_str(), options[opt_idx].value.c_str());
+                } else {
+                    mvwprintw(win, draw_y, 4, "(%c) %s (%s)", indicator, options[opt_idx].label.c_str(), options[opt_idx].value.c_str());
+                }
                 
                 if (is_sel) {
                     wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
                 }
+            }
+            // Draw scrollbar if needed
+            if (filtered_indices.size() > (size_t)list_h) {
+                int total = filtered_indices.size();
+                int thumb_h = std::max(1, (list_h * list_h) / total);
+                int thumb_y = (scroll * (list_h - thumb_h)) / std::max(1, total - list_h);
+                
+                for (int i = 0; i < list_h; i++) {
+                    mvwaddch(win, list_start_y + i, w - 3, '|' | A_DIM);
+                }
+                wattron(win, COLOR_PAIR(CP_HIGHLIGHT));
+                for (int i = 0; i < thumb_h; i++) {
+                    mvwaddch(win, list_start_y + thumb_y + i, w - 3, ' ' | A_REVERSE);
+                }
+                wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
             }
 
             if (filtered_indices.empty()) {
@@ -371,7 +390,7 @@ public:
 
         int input_w = w - 8;
         int input_x = 4;
-        std::string result = NcursesLib::text_input(win, 5, input_x, input_w, initial);
+        std::string result = NcursesLib::text_input(win, 5, input_x, input_w, 256, initial);
 
         delwin(win);
         touchwin(stdscr);
@@ -462,7 +481,10 @@ public:
                     } else if (fields[i].type == FieldType::Select) {
                         mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " [ %s ] ", fields[i].value.c_str());
                     } else {
-                        mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " %-*s ", fields[i].max_len, fields[i].value.c_str());
+                        int disp_w = std::min(40, fields[i].max_len);
+                        std::string val = fields[i].value;
+                        if (val.length() > (size_t)disp_w) val = val.substr(0, disp_w);
+                        mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " %-*s ", disp_w, val.c_str());
                     }
                     wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
                 } else {
@@ -472,13 +494,34 @@ public:
                         wattroff(win, COLOR_PAIR(CP_POPUP_WINDOW));
                     } else {
                         wattron(win, COLOR_PAIR(CP_INPUT_FIELD));
-                        mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " %-*s ", fields[i].max_len, fields[i].value.c_str());
+                        int disp_w = std::min(40, fields[i].max_len);
+                        std::string val = fields[i].value;
+                        if (val.length() > (size_t)disp_w) val = val.substr(0, disp_w);
+                        mvwprintw(win, draw_y, 4 + fields[i].label.size() + 2, " %-*s ", disp_w, val.c_str());
                         wattroff(win, COLOR_PAIR(CP_INPUT_FIELD));
                     }
                 }
                 wattroff(win, COLOR_PAIR(CP_POPUP_WINDOW));
                 
                 draw_y += item_spacing;
+            }
+            // Draw scrollbar if needed
+            int max_visible = content_h / item_spacing;
+            if (visible_indices.size() > (size_t)max_visible) {
+                int total = visible_indices.size();
+                int bar_h = h - 6; 
+                int thumb_h = std::max(1, (bar_h * max_visible) / total);
+                int thumb_y = (scroll * (bar_h - thumb_h)) / std::max(1, total - max_visible);
+                
+                int bar_start_y = 2;
+                for (int i = 0; i < bar_h; i++) {
+                    mvwaddch(win, bar_start_y + i, w - 3, '|' | A_DIM);
+                }
+                wattron(win, COLOR_PAIR(CP_HIGHLIGHT));
+                for (int i = 0; i < thumb_h; i++) {
+                    mvwaddch(win, bar_start_y + thumb_y + i, w - 3, ' ' | A_REVERSE);
+                }
+                wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
             }
 
             int save_x = w / 2 - 15;
@@ -546,7 +589,8 @@ public:
                         int idx_in_view = selected - scroll;
                         int field_y = 2 + (idx_in_view * item_spacing);
                         int field_x = 4 + fields[i].label.size() + 2;
-                        fields[i].value = NcursesLib::text_input(win, field_y, field_x, fields[i].max_len, fields[i].value);
+                        int disp_w = std::min(40, fields[i].max_len);
+                        fields[i].value = NcursesLib::text_input(win, field_y, field_x, disp_w, fields[i].max_len, fields[i].value);
                         if (selected < (int)visible_indices.size() - 1) selected++; 
                     }
                 } else if (selected == (int)visible_indices.size()) {

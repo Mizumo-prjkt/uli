@@ -100,61 +100,105 @@ void NcursesLib::print_center_attr(WINDOW *win, int y, const std::string &text,
   wattroff(win, attrs);
 }
 
-std::string NcursesLib::text_input(WINDOW *win, int y, int x, int max_len, const std::string& initial_value) {
-  std::string result = initial_value;
-  curs_set(1);
-  wattron(win, COLOR_PAIR(CP_INPUT_FIELD));
-  // Draw input field background
-  for (int i = 0; i < max_len; i++)
-    mvwaddch(win, y, x + i, ' ');
-  // Draw initial value
-  mvwprintw(win, y, x, "%s", result.c_str());
-  wmove(win, y, x + result.size());
-  wrefresh(win);
+std::string NcursesLib::text_input(WINDOW *win, int y, int x, int display_width, int max_len, const std::string& initial_value) {
+    std::string res = initial_value;
+    int cursor_pos = res.length();
+    int offset = 0;
+    curs_set(1);
+    keypad(win, TRUE);
+    
+    auto redraw = [&]() {
+        wattron(win, COLOR_PAIR(CP_INPUT_FIELD));
+        for (int i = 0; i < display_width; i++) mvwaddch(win, y, x + i, ' ');
+        
+        std::string visible = res.substr(offset, display_width);
+        mvwprintw(win, y, x, "%s", visible.c_str());
+        wmove(win, y, x + (cursor_pos - offset));
+        wattroff(win, COLOR_PAIR(CP_INPUT_FIELD));
+        wrefresh(win);
+    };
 
-  int ch;
-  while ((ch = wgetch(win)) != '\n' && ch != 27) { // Enter or Escape
-    if ((ch == KEY_BACKSPACE || ch == 127 || ch == 8) && !result.empty()) {
-      result.pop_back();
-      mvwaddch(win, y, x + (int)result.size(), ' ');
-      wmove(win, y, x + (int)result.size());
-    } else if (ch >= 32 && ch < 127 && (int)result.size() < max_len) {
-      result += (char)ch;
-      mvwaddch(win, y, x + (int)result.size() - 1, ch);
+    while (true) {
+        if (cursor_pos < offset) offset = cursor_pos;
+        if (cursor_pos >= offset + display_width) offset = cursor_pos - display_width + 1;
+        redraw();
+
+        int ch = wgetch(win);
+        if (ch == '\n' || ch == KEY_ENTER) break;
+        if (ch == 27) return ""; // Cancel
+
+        if (ch == KEY_LEFT && cursor_pos > 0) {
+            cursor_pos--;
+        } else if (ch == KEY_RIGHT && cursor_pos < (int)res.length()) {
+            cursor_pos++;
+        } else if (ch == KEY_HOME) {
+            cursor_pos = 0;
+        } else if (ch == KEY_END) {
+            cursor_pos = res.length();
+        } else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+            if (cursor_pos > 0) {
+                res.erase(cursor_pos - 1, 1);
+                cursor_pos--;
+            }
+        } else if (ch == KEY_DC) { // Delete
+            if (cursor_pos < (int)res.length()) {
+                res.erase(cursor_pos, 1);
+            }
+        } else if (isprint(ch) && (int)res.length() < max_len) {
+            res.insert(cursor_pos, 1, (char)ch);
+            cursor_pos++;
+        }
     }
-    wrefresh(win);
-  }
-  wattroff(win, COLOR_PAIR(CP_INPUT_FIELD));
-  curs_set(0);
-  if (ch == 27)
-    return ""; // cancelled
-  return result;
+    curs_set(0);
+    return res;
 }
 
-std::string NcursesLib::masked_input(WINDOW *win, int y, int x, int max_len) {
-  std::string result;
-  curs_set(1);
-  wattron(win, COLOR_PAIR(CP_INPUT_FIELD));
-  for (int i = 0; i < max_len; i++)
-    mvwaddch(win, y, x + i, ' ');
-  wmove(win, y, x);
-  wrefresh(win);
+std::string NcursesLib::masked_input(WINDOW *win, int y, int x, int display_width, int max_len) {
+    std::string res;
+    int cursor_pos = 0;
+    int offset = 0;
+    curs_set(1);
+    keypad(win, TRUE);
 
-  int ch;
-  while ((ch = wgetch(win)) != '\n' && ch != 27) {
-    if ((ch == KEY_BACKSPACE || ch == 127 || ch == 8) && !result.empty()) {
-      result.pop_back();
-      mvwaddch(win, y, x + (int)result.size(), ' ');
-      wmove(win, y, x + (int)result.size());
-    } else if (ch >= 32 && ch < 127 && (int)result.size() < max_len) {
-      result += (char)ch;
-      mvwaddch(win, y, x + (int)result.size() - 1, '*');
+    auto redraw = [&]() {
+        wattron(win, COLOR_PAIR(CP_INPUT_FIELD));
+        for (int i = 0; i < display_width; i++) mvwaddch(win, y, x + i, ' ');
+        
+        for (int i = 0; i < std::min((int)res.length() - offset, display_width); i++) {
+            mvwaddch(win, y, x + i, '*');
+        }
+        wmove(win, y, x + (cursor_pos - offset));
+        wattroff(win, COLOR_PAIR(CP_INPUT_FIELD));
+        wrefresh(win);
+    };
+
+    while (true) {
+        if (cursor_pos < offset) offset = cursor_pos;
+        if (cursor_pos >= offset + display_width) offset = cursor_pos - display_width + 1;
+        redraw();
+
+        int ch = wgetch(win);
+        if (ch == '\n' || ch == KEY_ENTER) break;
+        if (ch == 27) return "";
+
+        if (ch == KEY_LEFT && cursor_pos > 0) {
+            cursor_pos--;
+        } else if (ch == KEY_RIGHT && cursor_pos < (int)res.length()) {
+            cursor_pos++;
+        } else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+            if (cursor_pos > 0) {
+                res.erase(cursor_pos - 1, 1);
+                cursor_pos--;
+            }
+        } else if (ch == KEY_DC) { // Delete
+            if (cursor_pos < (int)res.length()) {
+                res.erase(cursor_pos, 1);
+            }
+        } else if (isprint(ch) && (int)res.length() < max_len) {
+            res.insert(cursor_pos, 1, (char)ch);
+            cursor_pos++;
+        }
     }
-    wrefresh(win);
-  }
-  wattroff(win, COLOR_PAIR(CP_INPUT_FIELD));
-  curs_set(0);
-  if (ch == 27)
-    return "";
-  return result;
+    curs_set(0);
+    return res;
 }

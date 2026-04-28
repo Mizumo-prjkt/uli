@@ -263,13 +263,13 @@ public:
                 int box_y = (h_win - 8) / 2;
                 int box_x = (w_win - 50) / 2;
                 if (ip_field_ == 1) {
-                    std::string val = NcursesLib::text_input(win, box_y + 2, box_x + 15, 15);
+                    std::string val = NcursesLib::text_input(win, box_y + 2, box_x + 15, 15, 64);
                     if (!val.empty()) iface.ip_address = val;
                 } else if (ip_field_ == 2) {
-                    std::string val = NcursesLib::text_input(win, box_y + 3, box_x + 15, 15);
+                    std::string val = NcursesLib::text_input(win, box_y + 3, box_x + 15, 15, 64);
                     if (!val.empty()) iface.gateway = val;
                 } else if (ip_field_ == 3) {
-                    std::string val = NcursesLib::text_input(win, box_y + 4, box_x + 15, 15);
+                    std::string val = NcursesLib::text_input(win, box_y + 4, box_x + 15, 15, 64);
                     if (!val.empty()) iface.dns = val;
                 }
                 return true;
@@ -294,7 +294,7 @@ public:
         }
         if (focus_ == 1) {
             if (ch == '\n' || ch == KEY_ENTER) {
-                std::string input = NcursesLib::text_input(win, 2, 13, 20);
+                std::string input = NcursesLib::text_input(win, 2, 13, 20, 64);
                 if (!input.empty()) hostname_ = input;
                 return true;
             }

@@ -201,7 +201,7 @@ private:
 
     int table_y = 8;
     wattron(win, COLOR_PAIR(CP_TABLE_HEADER) | A_BOLD | A_UNDERLINE);
-    mvwprintw(win, table_y, 2, "   %-12s %-10s %10s  %-10s  %-12s", "Device",
+    mvwprintw(win, table_y, 2, "   %-10s %-25s %8s  %-8s  %-12s", "Device",
               "Mount", "Size", "FS", "Flags");
     wattroff(win, COLOR_PAIR(CP_TABLE_HEADER) | A_BOLD | A_UNDERLINE);
 
@@ -211,6 +211,11 @@ private:
       part_scroll_ = selected_part_;
     if (selected_part_ >= part_scroll_ + list_h)
       part_scroll_ = selected_part_ - list_h + 1;
+
+    auto truncate = [](const std::string& s, size_t len) {
+        if (s.length() <= len) return s;
+        return s.substr(0, len-3) + "...";
+    };
 
     for (int i = 0; i < list_h && (part_scroll_ + i) < max_items; i++) {
       int idx = part_scroll_ + i;
@@ -222,8 +227,8 @@ private:
       }
       if (idx < (int)disk.partitions.size()) {
         auto &p = disk.partitions[idx];
-        mvwprintw(win, ry, 6, "%-12s %-10s %10s  %-10s  %-12s",
-                  p.device.c_str(), p.mount_point.c_str(),
+        mvwprintw(win, ry, 6, "%-10s %-25s %8s  %-8s  %-12s",
+                  p.device.c_str(), truncate(p.mount_point, 25).c_str(),
                   fmt_size(p.size_mb).c_str(), p.filesystem.c_str(),
                   p.flags.c_str());
       } else if (idx == (int)disk.partitions.size())
@@ -234,20 +239,19 @@ private:
         wattroff(win, COLOR_PAIR(CP_HIGHLIGHT));
     }
 
-    // Info Bar
+    // Disk Summary Bar
     wattron(win, COLOR_PAIR(CP_STATUS_BAR));
     mvwhline(win, h - 1, 0, ' ', w);
-    if (selected_part_ < (int)disk.partitions.size()) {
-      const auto &p = disk.partitions[selected_part_];
-      mvwprintw(win, h - 1, 2, "INFO: %s | %s | %s | %s MB | Flags: %s",
-                p.device.c_str(), p.filesystem.c_str(), p.mount_point.c_str(),
-                std::to_string(p.size_mb).c_str(), p.flags.c_str());
-    } else if (selected_part_ == (int)disk.partitions.size()) {
-      mvwprintw(win, h - 1, 2, "ACTION: Create a new partition on %s",
-                disk.device.c_str());
-    } else {
-      mvwprintw(win, h - 1, 2, "ACTION: Return to disk selection");
-    }
+    
+    uint64_t used_mb = 0;
+    for (const auto& p : disk.partitions) used_mb += p.size_mb;
+    uint64_t free_mb = (disk.size_mb > used_mb) ? (disk.size_mb - used_mb) : 0;
+    
+    mvwprintw(win, h - 1, 2, "Disk: %s (%s) | Total: %.1f GB | Partitions: %zu | Used: %lu MB | Free: %lu MB",
+              disk.device.c_str(), disk.model.c_str(), 
+              (double)disk.size_mb / 1024.0,
+              disk.partitions.size(),
+              used_mb, free_mb);
     wattroff(win, COLOR_PAIR(CP_STATUS_BAR));
   }
 
@@ -359,7 +363,7 @@ private:
         auto &p = ds.disks[selected_disk_].partitions[selected_part_];
 
         std::vector<FormField> fields = {
-            {"Mount Point", "e.g. /, /home, /boot/efi", p.mount_point, 20,
+            {"Mount Point", "e.g. /, /home, /boot/efi", p.mount_point, 128,
              FieldType::Text},
             {"Filesystem",
              "Select filesystem type",
@@ -368,7 +372,7 @@ private:
              FieldType::Select,
              {"ext4", "btrfs", "fat32", "swap", "xfs"}},
             {"Subvolume", "Btrfs subvolume names (comma separated)",
-             p.btrfs_subvol, 20, FieldType::Text},
+             p.btrfs_subvol, 128, FieldType::Text},
             {"Compression",
              "Btrfs compression type",
              p.btrfs_compress,

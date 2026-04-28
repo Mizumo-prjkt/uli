@@ -98,6 +98,9 @@ public:
     // Profiles
     std::vector<ProfileOption> profiles;
     int selected_profile_idx = 0;
+    std::string selected_de = "KDE Plasma";
+    std::string selected_de_flavor = "Usable";
+    std::vector<std::string> server_components;
 
     // Performance Settings
     bool zram_enabled = false;

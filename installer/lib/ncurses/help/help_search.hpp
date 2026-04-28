@@ -86,7 +86,7 @@ public:
             } else if (ch == '\t') {
                 // Interactive search
                 curs_set(1);
-                std::string res = NcursesLib::text_input(win, 1, 11, 28);
+                std::string res = NcursesLib::text_input(win, 1, 11, 28, 128);
                 curs_set(0);
                 query = res;
                 // Filter

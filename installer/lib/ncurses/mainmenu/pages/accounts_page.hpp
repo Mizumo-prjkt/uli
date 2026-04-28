@@ -108,7 +108,7 @@ public:
 
         if (focus_ == 0) {
             if (ch == '\n' || ch == KEY_ENTER) {
-                std::string pw = NcursesLib::masked_input(win, 4, 5, 30);
+                std::string pw = NcursesLib::masked_input(win, 4, 5, 30, 64);
                 if (!pw.empty()) root_password_ = pw;
                 return true;
             }
@@ -125,9 +125,9 @@ public:
         } else if (focus_ == 2) {
             if (ch == '\n' || ch == KEY_ENTER) {
                 // Simulate adding a user
-                std::string uname = NcursesLib::text_input(win, 7, 18, 20);
+                std::string uname = NcursesLib::text_input(win, 7, 18, 20, 32);
                 if (!uname.empty()) {
-                    std::string pw = NcursesLib::masked_input(win, 8, 18, 20);
+                    std::string pw = NcursesLib::masked_input(win, 8, 18, 20, 64);
                     if (!pw.empty()) {
                         users_.push_back({uname, pw, true});
                     }
